@@ -1,24 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-//    UserModel model = UserModel(
-//         name: 'Write your name...',
-//         level: 3,
-//         hourlyRate: 0,
-//         totalHours: 0,
-//         totalSalary: 0,
-//         currentMonthHours: 0,
-//         currentMonthSalary: 0,
-//     );
 class UserModel
 {
-//    UserModel model = UserModel(
-//         name: 'Write your name...',
-//         level: 3,
-//         hourlyRate: 0,
-//         totalHours: 0,
-//         totalSalary: 0,
-//         currentMonthHours: 0,
-//         currentMonthSalary: 0,
-//     );
   String? name;
   String? email;
   int? level;
@@ -43,23 +25,7 @@ class UserModel
   String? password;
   //teachers
   List<String>? teachers;
-//  String? name;
-//   String? email;
-//   int? level;
-//   int? hourlyRate;
-//   int? totalHours;
-//   int? totalSalary;
-//   int? currentMonthHours;
-//   int? currentMonthSalary;
-//   String? uId;
-//   String? phone;
-//   String? role;
-//   //image
-//   String? image;
-//   //fname
-//   String? fname;
-//   //lname
-//   String? lname;
+
 
 
   UserModel({

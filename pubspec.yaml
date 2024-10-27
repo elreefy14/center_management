@@ -37,6 +37,10 @@ dependencies:
   #    url: https://github.com/transistorsoft/flutter_background_fetch
   permission_handler: ^11.0.0
   logger: ^2.0.2+1
+  path_provider:
+  barcode_image:
+  image:
+  share_plus:
   #SharedPreferences
   shared_preferences:
   uuid: ^4.2.1

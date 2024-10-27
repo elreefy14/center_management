@@ -12,10 +12,42 @@ final class ManageStudentsInitial extends ManageStudentsState {}
 //   UsersLoaded(this.users);
 // }
 class UsersLoading extends ManageStudentsState {}
+//fetche users Loading
+class FetchUsersLoading extends ManageStudentsState {}
+//emit(UsersLoaded(searchResults, isSearching: true));
+
 class UsersLoaded extends ManageStudentsState {
   final List<UserModel> users;
+  final bool isSearching;
+  final String? selectedExamRange;
+  final String? selectedTeacher;
 
-  UsersLoaded(this.users);
+  UsersLoaded(
+    this.users, {
+    this.isSearching = false,
+    this.selectedExamRange,
+    this.selectedTeacher,
+  });
+
+  // Add copyWith method to create new instance with updated values
+  UsersLoaded copyWith({
+    List<UserModel>? users,
+    bool? isSearching,
+    String? selectedExamRange,
+    String? selectedTeacher,
+  }) {
+    return UsersLoaded(
+      users ?? this.users,
+      isSearching: isSearching ?? this.isSearching,
+      selectedExamRange: selectedExamRange ?? this.selectedExamRange,
+      selectedTeacher: selectedTeacher ?? this.selectedTeacher,
+    );
+  }
+}
+//UpdateUserInfoErrorState
+class UpdateUserInfoErrorState extends ManageStudentsState {
+  final String error;
+  UpdateUserInfoErrorState(this.error);
 }
 //UpdateUserInfoLoadingState
 class UpdateUserInfoLoadingState extends ManageStudentsState {}
@@ -41,6 +73,22 @@ class TeacherSelected extends ManageStudentsState {
   final String teacherName;
   TeacherSelected(this.teacherName);
 }
+
+
+
+
+class UsersLoadingMore extends ManageStudentsState {
+  final List<UserModel> currentUsers;
+  UsersLoadingMore(this.currentUsers);
+}
+
+
+
+class UsersError extends ManageStudentsState {
+  final String message;
+  UsersError(this.message);
+}
+
 //DeleteUserErrorState
 class DeleteUserErrorState extends ManageStudentsState {
   final String error;

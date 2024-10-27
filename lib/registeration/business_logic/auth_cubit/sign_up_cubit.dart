@@ -1,12 +1,17 @@
 import 'dart:io';
-
+import 'dart:ui' as ui;
+import 'package:barcode_image/barcode_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/flutter_flow/form_field_controller.dart';
@@ -14,6 +19,8 @@ import '../../data/userModel.dart';
 import '../../data/adminModel.dart';
 import '../../presenation/widget/widget.dart';
 import 'sign_up_state.dart';
+import 'package:image/image.dart' as img;
+
 //**Collections and Documents:**
 // 1. **users**: A collection to store the information of all coaches.   - Document ID: unique coach ID   - Fields: `name`, `level`, `hourly_rate`, `total_hours`, `total_salary`, `current_month_hours`, `current_month_salary`
 // 2. **branches**: A collection to store the information of all branches.   - Document ID: unique branch ID   - Fields: `name`, `address`
@@ -268,7 +275,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     String? adminEmail = FirebaseAuth.instance.currentUser!.email;
     String? uId = Uuid().v4();
     String? adminUid = FirebaseAuth.instance.currentUser!.uid;
-   await FirebaseAuth.instance.signOut();
+    await FirebaseAuth.instance.signOut();
     FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: '$phone@placeholder.com',
         password: password
@@ -409,6 +416,152 @@ class SignUpCubit extends Cubit<SignUpState> {
       );
     });
   }
+  bool shouldSendWhatsApp = false;
+
+
+
+  sendWhatsAppMessage({
+    required String phone,
+    required String uId,
+    required String name,
+  }) async {
+    try {
+      print('sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
+
+      // Get the temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final barcodeFile = File('${tempDir.path}/barcode.png');
+
+      // Create QR painter directly instead of using widget
+      final qrPainter = QrPainter(
+        data: uId,
+        version: QrVersions.auto,
+        gapless: true,
+        color: const Color(0xFF000000),
+        emptyColor: const Color(0xFFFFFFFF),
+        errorCorrectionLevel: QrErrorCorrectLevel.H,
+      );
+
+      // Generate the image directly
+      final qrImage = await qrPainter.toImage(200);
+      final byteData = await qrImage.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData == null) {
+        throw Exception('Failed to generate QR code image');
+      }
+
+      // Save the QR code image
+      await barcodeFile.writeAsBytes(byteData.buffer.asUint8List());
+      print('QR code generated and saved to ${barcodeFile.path}');
+
+      // Prepare WhatsApp message
+      final message = 'مرحباً $name!\n'
+          'معرف حسابك هو: $uId\n'
+          'يرجى الاحتفاظ بهذه المعلومات للرجوع إليها لاحقاً.';
+
+      // Create an XFile object for sharing
+      final xFile = XFile(barcodeFile.path);
+
+      // Share message and QR code image via WhatsApp
+      await Share.shareXFiles(
+        [xFile],
+        text: message,
+        subject: 'معرف الحساب',
+        sharePositionOrigin: const Rect.fromLTWH(0, 0, 100, 100),
+      );
+      print('WhatsApp message sent with QR code image');
+
+    } catch (e) {
+      print('Error in sendWhatsAppMessage: $e');
+      rethrow;
+    }
+  }
+
+// Alternative implementation using BuildContext if you need to use QrImageView
+  Future<void> sendWhatsAppMessageWithContext(
+      BuildContext context, {
+        required String phone,
+        required String uId,
+        required String name,
+      }) async {
+    try {
+      print('sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
+
+      // Get the temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final barcodeFile = File('${tempDir.path}/barcode.png');
+
+      // Create a GlobalKey to get the QR image
+      final qrKey = GlobalKey();
+
+      // Create the QR widget
+      final qrWidget = RepaintBoundary(
+        key: qrKey,
+        child: Container(
+          color: Colors.white,
+          child: QrImageView(
+            data: uId,
+            version: QrVersions.auto,
+            size: 200.0,
+            backgroundColor: Colors.white,
+            errorCorrectionLevel: QrErrorCorrectLevel.H,
+          ),
+        ),
+      );
+
+      // Create an overlay to render the widget
+      final overlay = OverlayEntry(
+        builder: (context) => Positioned(
+          left: -1000,
+          top: -1000,
+          child: qrWidget,
+        ),
+      );
+
+      // Add the overlay and wait for the widget to be rendered
+      Overlay.of(context).insert(overlay);
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Capture the image
+      final RenderRepaintBoundary boundary =
+      qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+      // Remove the overlay
+      overlay.remove();
+
+      if (byteData == null) {
+        throw Exception('Failed to generate QR code image');
+      }
+
+      // Save the QR code image
+      await barcodeFile.writeAsBytes(byteData.buffer.asUint8List());
+      print('QR code generated and saved to ${barcodeFile.path}');
+
+      // Prepare WhatsApp message
+      final message = 'مرحباً $name!\n'
+          'معرف حسابك هو: $uId\n'
+          'يرجى الاحتفاظ بهذه المعلومات للرجوع إليها لاحقاً.';
+
+      // Create an XFile object for sharing
+      final xFile = XFile(barcodeFile.path);
+
+      // Share message and QR code image via WhatsApp
+      await Share.shareXFiles(
+        [xFile],
+        text: message,
+        subject: 'معرف الحساب',
+        sharePositionOrigin: const Rect.fromLTWH(0, 0, 100, 100),
+      );
+      print('WhatsApp message sent with QR code image');
+
+    } catch (e) {
+      print('Error in sendWhatsAppMessage: $e');
+      rethrow;
+    }
+  }
+
 
   void createUser({
     //password
@@ -487,12 +640,12 @@ class SignUpCubit extends Cubit<SignUpState> {
       });
     }
   }
-   Future<void> addTrainee({
+  Future<void> addTrainee({
     required String lname,
     required String fname,
     required String phone,
     required String password,
-     String? hourlyRate,
+    String? hourlyRate,
 
   }) async {
     emit(SignUpLoadingState());
@@ -546,21 +699,21 @@ class SignUpCubit extends Cubit<SignUpState> {
     //   name: fname + ' ' + lname,
     //   phoneNumber: phone!,
     // );
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-        batch.set(
-            FirebaseFirestore.instance.collection('admins').
-            doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
-            {
-              'setFlag': true,
-            },
-            SetOptions(merge: true));
-        batch.update(
-          FirebaseFirestore.instance.collection('admins').
-          doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
-          {
-            'numberOfNewMembers':FieldValue.increment(1),
-          },
-        );
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+    batch.set(
+        FirebaseFirestore.instance.collection('admins').
+        doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
+        {
+          'setFlag': true,
+        },
+        SetOptions(merge: true));
+    batch.update(
+      FirebaseFirestore.instance.collection('admins').
+      doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
+      {
+        'numberOfNewMembers':FieldValue.increment(1),
+      },
+    );
 
     //
     // FirebaseFirestore.instance
@@ -573,16 +726,16 @@ class SignUpCubit extends Cubit<SignUpState> {
     );
     batch.commit();
     showToast(
-              msg: 'تم التسجيل بنجاح',
-              state: ToastStates.SUCCESS,
-            );
+      msg: 'تم التسجيل بنجاح',
+      state: ToastStates.SUCCESS,
+    );
     firstNameController.clear();
     lastNameController.clear();
     phoneController.clear();
     passwordController.clear();
     hourlyRateController.clear();
-      //save user to conatct list in the device
-      emit(CreateUserSuccessState(uId!));
+    //save user to conatct list in the device
+    emit(CreateUserSuccessState(uId!));
 
   }
   Future<void> addCoach({
@@ -630,8 +783,8 @@ class SignUpCubit extends Cubit<SignUpState> {
     print('\n\nadminemail'+adminEmail!??'');
     print('\n\nadmin uid'+adminUid!??'');
     //sign out
-  await FirebaseAuth.instance.signOut();
-  await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    await FirebaseAuth.instance.signOut();
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: '$phone@placeholder.com',
         password: password
     );
@@ -931,3 +1084,4 @@ class SignUpCubit extends Cubit<SignUpState> {
 
 
 }
+////////////////

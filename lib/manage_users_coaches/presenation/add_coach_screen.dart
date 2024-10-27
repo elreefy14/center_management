@@ -38,7 +38,8 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
                 alignment: Alignment.center,
                 child: widget.isCoach
                     ? Text(
-                  'اضافة مدرب',
+                 //add student text
+                  'اضافة طالب',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFF333333),
@@ -70,6 +71,7 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+
                 Padding(
                 padding: EdgeInsets.symmetric(horizontal: 35.0.w),
                 child: BuildTextFormField2(
@@ -182,8 +184,7 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     child: Row(
     mainAxisAlignment: MainAxisAlignment.start,
     children: [
-      //i want container to be in the right side of the screen
-
+//text to 
     Container(
     width: 280.w,
     height: 48.h,
@@ -309,31 +310,33 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     Padding(
     padding: EdgeInsets.symmetric(horizontal: 35.0.w),
     child: ElevatedButton(
-    onPressed: () {
+    onPressed: () async {
     if (SignUpCubit.get(context)
         .formKey
         .currentState!
         .validate()) {
     if (widget.isCoach) {
-    SignUpCubit.get(context).addUser(
-    role: 'coach',
-    fName: SignUpCubit.get(context)
-        .firstNameController
-        .text,
-    lName: SignUpCubit.get(context)
-        .lastNameController
-        .text,
-    phone: SignUpCubit.get(context)
-        .phoneController
-        .text
-        .trim(),
-    password: SignUpCubit.get(context)
-
-        .passwordController
-        .text,
-      hourlyRate: '30',
-      teachers: selectedTeachers,
+  SignUpCubit.get(context).addUser(
+  role: 'coach',
+  fName: SignUpCubit.get(context).firstNameController.text,
+  lName: SignUpCubit.get(context).lastNameController.text,
+  phone: SignUpCubit.get(context).phoneController.text.trim(),
+  password: SignUpCubit.get(context).passwordController.text,
+  hourlyRate: '30',
+  teachers: selectedTeachers,
+).then((_) async {
+  if (context.read<SignUpCubit>().shouldSendWhatsApp == true
+  //&&
+  //todo:fix this
+  //    state is SignUpSuccessState
+  ) {
+    await context.read<SignUpCubit>().sendWhatsAppMessage(
+      phone: SignUpCubit.get(context).phoneController.text.trim(),
+      uId: '23rtgyuhijkljnhgsax',
+      name: '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}',
     );
+  }
+});
     } else {
       SignUpCubit.get(context).addTrainee(
         fname: SignUpCubit.get(context)
@@ -351,6 +354,23 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
             .text,
       );
     }
+    }
+    if (context.read<SignUpCubit>().shouldSendWhatsApp == true
+        //&&
+    //    state is SignUpSuccessState
+    ) {
+      await context.read<SignUpCubit>().sendWhatsAppMessage(
+        phone: SignUpCubit.get(context)
+            .phoneController
+            .text
+            .trim(),
+        uId: '23rtgyuhijkljnhgsax',
+        name: '${SignUpCubit.get(context)
+            .firstNameController
+            .text} ${SignUpCubit.get(context)
+            .lastNameController
+            .text}',
+      );
     }
     },
       style: ElevatedButton.styleFrom(
@@ -370,6 +390,25 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
       ),
     ),
     ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                        child: CheckboxListTile(
+                          value: context.read<SignUpCubit>().shouldSendWhatsApp,
+                          onChanged: (value) {
+                            setState(() {
+                              context.read<SignUpCubit>().shouldSendWhatsApp =
+                              value!;
+                            });
+                          },
+                          title: Text(
+                            'إرسال معلومات الحساب عبر واتساب',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              fontFamily: 'IBM Plex Sans Arabic',
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 20.0),
                     ],
                 ),
