@@ -142,22 +142,14 @@ class QRScannerScreen extends StatelessWidget {
 
 final logger = Logger();
 
-   Future<void> _handleBarcodeScanned(String scannedValue, BuildContext context) async {
+   Future<void> _handleBarcodeScanned(String scannedUid, BuildContext context) async {
      try {
-       logger.d('Starting _handleBarcodeScanned with data: $scannedValue');
-
-       // Try to parse the barcode data
-       final parsedData = BarcodeData.decode(scannedValue);
-       if (parsedData == null) {
-         throw Exception('Invalid barcode format');
-       }
-
-       logger.d('Parsed data - UID: ${parsedData.uid}, Name: ${parsedData.name}');
+       logger.d('Starting _handleBarcodeScanned with UID: $scannedUid');
 
        final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
        // First verify if the student exists
-       final studentDoc = await firestore.collection('users').doc(parsedData.uid).get();
+       final studentDoc = await firestore.collection('users').doc(scannedUid).get();
        if (!studentDoc.exists) {
          throw Exception('Student not found');
        }
@@ -165,12 +157,12 @@ final logger = Logger();
        final WriteBatch batch = firestore.batch();
        final DateTime now = DateTime.now();
 
-       // Get the actual student name from Firestore
+       // Get the student name from Firestore
        final String studentName = '${studentDoc.get('fname')} ${studentDoc.get('lname')}';
 
        final Map<String, dynamic> attendanceData = {
-         'studentId': parsedData.uid,
-         'studentName': studentName, // Use name from Firestore
+         'studentId': scannedUid,
+         'studentName': studentName,
          'timestamp': now,
          'date': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
          'year': now.year,
@@ -185,7 +177,7 @@ final logger = Logger();
        // Check if attendance already recorded for today
        final existingAttendance = await firestore
            .collection('users')
-           .doc(parsedData.uid)
+           .doc(scannedUid)
            .collection('attendance')
            .doc('${now.year}-${now.month}-${now.day}')
            .get();
@@ -204,7 +196,7 @@ final logger = Logger();
        batch.set(
            firestore
                .collection('users')
-               .doc(parsedData.uid)
+               .doc(scannedUid)
                .collection('attendance')
                .doc('${now.year}-${now.month}-${now.day}'),
            attendanceData
@@ -214,13 +206,13 @@ final logger = Logger();
        batch.set(
            firestore
                .collection('attendance')
-               .doc('${now.year}-${now.month}-${now.day}-${parsedData.uid}'),
+               .doc('${now.year}-${now.month}-${now.day}-$scannedUid'),
            attendanceData
        );
 
        // Update student's attendance summary
        batch.update(
-           firestore.collection('users').doc(parsedData.uid),
+           firestore.collection('users').doc(scannedUid),
            {
              'lastAttendance': now,
              'attendanceDates': FieldValue.arrayUnion([attendanceData['date']]),

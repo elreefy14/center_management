@@ -55,12 +55,11 @@ class AddCoachScreen extends StatefulWidget {
 
 class _AddCoachScreenState extends State<AddCoachScreen> {
   List<String> selectedTeachers = [];
+
   Future<File> generateBarcodeImage(String uId, String name) async {
     final GlobalKey globalKey = GlobalKey();
 
-    final barcodeData = BarcodeData(uid: uId, name: name);
-    final barcodeString = barcodeData.encode();
-    Logger().d('Generating barcode with data: $barcodeString');
+    Logger().d('Generating barcode with UID: $uId');
 
     final barcodeWidget = RepaintBoundary(
       key: globalKey,
@@ -72,10 +71,10 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
           children: [
             BarcodeWidget(
               barcode: Barcode.code128(),
-              data: barcodeString,
+              data: uId,  // Using only the UID
               width: 300,
               height: 100,
-              drawText: false,
+              drawText: true,  // Show the UID text below barcode
             ),
             const SizedBox(height: 10),
             Text(
