@@ -57,6 +57,24 @@ class UpdateUserInfoSuccessState extends ManageStudentsState {}
 class DeleteUserLoadingState extends ManageStudentsState {}
 //DeleteUserSuccessState
 class DeleteUserSuccessState extends ManageStudentsState {}
+//emit(DataActionSuccess('تم إضافة الدرجة بنجاح', markModel.id));
+//emit(DataActionSuccess('تم إضافة الدرجة بنجاح', markModel.id));
+//emit(DataActionSuccess('تم إضافة الدرجة بنجاح', markModel.id));
+class DataActionSuccess extends ManageStudentsState {
+  final String message;
+  final String id;
+  DataActionSuccess(this.message, this.id);
+}
+//emit(MarksLoaded(marks));
+class MarksLoaded extends ManageStudentsState {
+  final List<MarkModel> marks;
+  MarksLoaded(this.marks);
+}
+//emit(SubscriptionsLoaded(subscriptions));
+class SubscriptionsLoaded extends ManageStudentsState {
+  final List<SubscriptionModel> subscriptions;
+  SubscriptionsLoaded(this.subscriptions);
+}
 
 class PreferencesLoaded extends ManageStudentsState {
   final String selectedExamRange;

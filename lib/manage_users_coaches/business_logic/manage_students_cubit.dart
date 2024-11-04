@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../registeration/data/userModel.dart';
 import '../../registeration/presenation/widget/widget.dart';
+import '../presenation/add_student_screen.dart';
+import '../presenation/mange_students_screen.dart';
 
 part 'manage_students_state.dart';
 
@@ -29,7 +31,191 @@ part 'manage_students_state.dart';
 
     bool isSearchMode = false;
     String lastSearchQuery = '';
-//
+    Future<String> addMark(String studentId, double mark, String examRange, String teacherName) async {
+      try {
+        final docRef = FirebaseFirestore.instance.collection('users').doc();
+        final markId = docRef.id;
+
+        final markData = MarkModel(
+          id: markId,
+          mark: mark,
+          examRange: examRange,
+          teacherName: teacherName,
+          studentId: studentId,
+          timestamp: DateTime.now(),
+        ).toJson();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('marks')
+            .doc(markId)
+            .set(markData);
+
+        return markId;
+      } catch (e) {
+        throw Exception('Failed to add mark: $e');
+      }
+    }
+
+    Future<String> addSubscription({
+      required String studentId,
+      required double amount,
+      required String teacherName,
+    }) async {
+      try {
+        final docRef = FirebaseFirestore.instance.collection('users').doc();
+        final subscriptionId = docRef.id;
+
+        final subscriptionData = SubscriptionModel(
+          id: subscriptionId,
+          amount: amount,
+          teacherName: teacherName,
+          studentId: studentId,
+          timestamp: DateTime.now(),
+        ).toJson();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('subscriptions')
+            .doc(subscriptionId)
+            .set(subscriptionData);
+
+        return subscriptionId;
+      } catch (e) {
+        throw Exception('Failed to add subscription: $e');
+      }
+    }
+
+    Future<void> deleteMark(String markId) async {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc()
+            .collection('marks')
+            .doc(markId)
+            .delete();
+      } catch (e) {
+        throw Exception('Failed to delete mark: $e');
+      }
+    }
+
+    Future<void> deleteSubscription(String subscriptionId) async {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc()
+            .collection('subscriptions')
+            .doc(subscriptionId)
+            .delete();
+      } catch (e) {
+        throw Exception('Failed to delete subscription: $e');
+      }
+    }
+
+
+
+
+    Future<void> fetchMarks(String studentId) async {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('marks')
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        final marks = snapshot.docs
+            .map((doc) => MarkModel.fromJson(doc.data()))
+            .toList();
+
+        emit(MarksLoaded(marks));
+      } catch (e) {
+        emit(UsersError(e.toString()));
+      }
+    }
+
+    Future<void> fetchSubscriptions(String studentId) async {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('subscriptions')
+            .where('active', isEqualTo: true)
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        final subscriptions = snapshot.docs
+            .map((doc) => SubscriptionModel.fromJson(doc.data()))
+            .toList();
+
+        emit(SubscriptionsLoaded(subscriptions));
+      } catch (e) {
+        emit(UsersError(e.toString()));
+      }
+    }
+
+    Future<void> deleteItem({
+      required String studentId,
+      required String itemId,
+      required String collection,
+    }) async {
+      try {
+        // Fetch the item first for potential rollback
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection(collection)
+            .doc(itemId)
+            .get();
+
+        if (!doc.exists) {
+          throw Exception('Item not found');
+        }
+
+        final itemData = doc.data()!;
+
+        // Soft delete by marking as inactive
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection(collection)
+            .doc(itemId)
+            .update({'active': false});
+
+        final lastAction = {
+          'type': 'delete_${collection}',
+          'data': itemData,
+          'timestamp': DateTime.now(),
+        };
+
+        emit(DataActionSuccess('تم الحذف بنجاح', itemId));
+
+        // Show rollback option for 5 seconds
+        Future.delayed(const Duration(seconds: 5), () {
+          if (collection == 'marks') {
+            fetchMarks(studentId);
+          } else {
+            fetchSubscriptions(studentId);
+          }
+        });
+      } catch (e) {
+        emit(UsersError(e.toString()));
+      }
+    }
+
+    Future<void> undoLastAction(String studentId) async {
+      try {
+        if (state is DataActionSuccess) {
+          final successState = state as DataActionSuccess;
+          // Implement rollback logic based on action type
+          // Re-add deleted item or reverse the last change
+        }
+      } catch (e) {
+        emit(UsersError(e.toString()));
+      }
+    }
     void setSelectedExamRange(String newRange) async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       selectedExamRange = newRange;
@@ -152,7 +338,8 @@ part 'manage_students_state.dart';
             .where('role', isEqualTo: 'user')
             .orderBy('name') // Add consistent ordering
             .limit(12)
-            .get();
+        //server then
+            .get(GetOptions(source: Source.serverAndCache));
 
         if (querySnapshot.docs.isEmpty) {
           emit(UsersLoaded([]));

@@ -1,12 +1,48 @@
+import 'dart:convert';
+
 import 'package:admin_future/registeration/presenation/widget/component.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:barcode_widget/barcode_widget.dart';
+import 'package:logger/logger.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:ui' as ui;
 import '../../home/presenation/widget/widget/custom_app_bar.dart';
 import '../../registeration/business_logic/auth_cubit/sign_up_cubit.dart';
 import '../../registeration/business_logic/auth_cubit/sign_up_state.dart';
+class BarcodeData {
+  final String uid;
+  final String name;
+
+  BarcodeData({required this.uid, required this.name});
+
+  // Simple format: "UID#NAME"
+  String encode() => "$uid#$name";
+
+  static BarcodeData? decode(String rawValue) {
+    try {
+      // First try to split with #
+      if (rawValue.contains('#')) {
+        final parts = rawValue.split('#');
+        if (parts.length == 2) {
+          return BarcodeData(uid: parts[0].trim(), name: parts[1].trim());
+        }
+      }
+      // If no #, assume it's just a UID for backward compatibility
+      return BarcodeData(uid: rawValue.trim(), name: 'Unknown');
+    } catch (e) {
+      print('Error decoding barcode data: $e');
+      return null;
+    }
+  }
+}
+
 
 class AddCoachScreen extends StatefulWidget {
   final bool isCoach;
@@ -19,6 +55,244 @@ class AddCoachScreen extends StatefulWidget {
 
 class _AddCoachScreenState extends State<AddCoachScreen> {
   List<String> selectedTeachers = [];
+  Future<File> generateBarcodeImage(String uId, String name) async {
+    final GlobalKey globalKey = GlobalKey();
+
+    final barcodeData = BarcodeData(uid: uId, name: name);
+    final barcodeString = barcodeData.encode();
+    Logger().d('Generating barcode with data: $barcodeString');
+
+    final barcodeWidget = RepaintBoundary(
+      key: globalKey,
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BarcodeWidget(
+              barcode: Barcode.code128(),
+              data: barcodeString,
+              width: 300,
+              height: 100,
+              drawText: false,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'معرف المستخدم: $uId',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'الاسم: $name',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Create overlay to render the widget
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: -1000,
+        top: -1000,
+        child: barcodeWidget,
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Capture the image
+    final RenderRepaintBoundary boundary =
+    globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    overlayEntry.remove();
+
+    if (byteData == null) {
+      throw Exception('Failed to generate barcode image');
+    }
+
+    // Save to temporary file
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/barcode.png');
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+
+    return file;
+  }
+
+  Future<void> sendWhatsAppMessageWithBarcode({
+    required String phone,
+    required String uId,
+    required String name,
+  }) async {
+    try {
+      final barcodeFile = await generateBarcodeImage(uId, name);
+
+      final message = 'مرحباً $name!\n'
+          'معرف حسابك هو: $uId\n'
+          'يرجى مسح الباركود أدناه للتحقق من هويتك.\n'
+          'يرجى الاحتفاظ بهذه المعلومات للرجوع إليها لاحقاً.';
+
+      final xFile = XFile(barcodeFile.path);
+      await Share.shareXFiles(
+        [xFile],
+        text: message,
+        subject: 'معلومات الحساب',
+      );
+
+    } catch (e) {
+      print('Error sending WhatsApp message with barcode: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء إرسال الرسالة'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  // Modify the existing onPressed handler in the ElevatedButton
+  Future<void> handleRegistration() async {
+    if (SignUpCubit.get(context).formKey.currentState!.validate()) {
+      String? newUid;
+String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}';
+
+      if (widget.isCoach) {
+        newUid = await SignUpCubit.get(context).addUser(
+          role: 'user',
+          fName: SignUpCubit.get(context).firstNameController.text,
+          lName: SignUpCubit.get(context).lastNameController.text,
+          phone: SignUpCubit.get(context).phoneController.text.trim(),
+          password: SignUpCubit.get(context).passwordController.text,
+          hourlyRate: '30',
+          teachers: [],
+        );
+      } else {
+        // newUid = await SignUpCubit.get(context).addTrainee(
+        //   fname: SignUpCubit.get(context).firstNameController.text,
+        //   lname: SignUpCubit.get(context).lastNameController.text,
+        //   phone: SignUpCubit.get(context).phoneController.text.trim(),
+        //   password: SignUpCubit.get(context).passwordController.text,
+        // );
+      }
+
+      if (newUid != null && context.read<SignUpCubit>().shouldSendWhatsApp) {
+        await sendWhatsAppMessageWithBarcode(
+          phone: SignUpCubit.get(context).phoneController.text.trim(),
+          uId: newUid,
+          name: name,
+        );
+      }
+    }
+  }
+
+  Future<void> _generateAndShareBarcode(String studentId, String studentName) async {
+    try {
+      // Create a GlobalKey to get the barcode widget's render box
+      final GlobalKey globalKey = GlobalKey();
+
+      // Create the widget with the global key
+      final Widget barcodeWidget = RepaintBoundary(
+        key: globalKey,
+        child: Container(
+          color: Colors.white,
+          child: BarcodeWidget(
+            barcode: Barcode.code128(),
+            data: studentId,
+            width: 300,
+            height: 100,
+            color: Colors.black,
+          ),
+        ),
+      );
+
+      // Create a temporary context to render the widget
+      final BuildContext? context = globalKey.currentContext;
+      if (context == null) {
+        // Create an overlay entry to render the widget
+        final overlayEntry = OverlayEntry(
+          builder: (context) => barcodeWidget,
+        );
+
+        Overlay.of(context!).insert(overlayEntry);
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        final RenderRepaintBoundary boundary = globalKey.currentContext!
+            .findRenderObject()! as RenderRepaintBoundary;
+
+        final ui.Image image = await boundary.toImage();
+        overlayEntry.remove();
+
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        final bytes = byteData!.buffer.asUint8List();
+
+        // Save to temporary file
+        final tempDir = await getTemporaryDirectory();
+        final file = await File('${tempDir.path}/barcode.png').create();
+        await file.writeAsBytes(bytes);
+
+        // Share using XFile
+        final xFile = XFile(file.path);
+        await Share.shareXFiles(
+          [xFile],
+          text: 'باركود الطالب: $studentName',
+          subject: 'Student Barcode',
+        );
+      }
+    } catch (e) {
+      print('Error generating or sharing barcode: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء مشاركة الباركود'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showBarcodeDialog(String studentId, String studentName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('باركود الطالب: $studentName'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BarcodeWidget(
+              barcode: Barcode.code128(),
+              data: studentId,
+              width: 300,
+              height: 100,
+              color: Colors.black,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _generateAndShareBarcode(studentId, studentName),
+              icon: const Icon(Icons.share),
+              label: const Text('مشاركة الباركود'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2196F3),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +312,6 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
                 alignment: Alignment.center,
                 child: widget.isCoach
                     ? Text(
-                 //add student text
                   'اضافة طالب',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -71,7 +344,6 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-
                 Padding(
                 padding: EdgeInsets.symmetric(horizontal: 35.0.w),
                 child: BuildTextFormField2(
@@ -184,7 +456,6 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     child: Row(
     mainAxisAlignment: MainAxisAlignment.start,
     children: [
-//text to 
     Container(
     width: 280.w,
     height: 48.h,
@@ -200,43 +471,39 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     mainAxisSize: MainAxisSize.min,
     mainAxisAlignment: MainAxisAlignment.end,
     children: [
-      Expanded(
-        child: SizedBox(
-          child: Text(
-            widget.isCoach
-                ? 'اختر المدرسين'
-                : 'اختر الطلاب',
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: const Color(0xFF666666),
-              fontSize: 16.sp,
-              fontFamily: 'IBM Plex Sans Arabic',
-              fontWeight: FontWeight.w400,
-              height: 0,
-            ),
-          ),
-        ),
-      ),
-
+    Expanded(
+    child: SizedBox(
+    child: Text(
+    widget.isCoach
+    ? 'اختر المدرسين'
+        : 'اختر الطلاب',
+    textAlign: TextAlign.right,
+    style: TextStyle(
+    color: const Color(0xFF666666),
+    fontSize: 16.sp,
+    fontFamily: 'IBM Plex Sans Arabic',
+    fontWeight: FontWeight.w400,
+    height: 0,
+    ),
+    ),
+    ),
+    ),
     const Spacer(),
-      SizedBox(
-        width: 20.w,
-        height: 11.30.h,
-        child: const Icon(
-          Icons.arrow_drop_down,
-        ),
-      ),
-
-    ],
+    SizedBox(
+    width: 20.w,
+    height: 11.30.h,
+    child: const Icon(
+    Icons.arrow_drop_down,
     ),
     ),
     ],
     ),
     ),
+    ],
     ),
-
-    if (selectedTeachers.isNotEmpty)
-      SizedBox(height: 20.0.h),
+    ),
+    ),
+    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
     if (selectedTeachers.isNotEmpty)
     Padding(
     padding: EdgeInsets.symmetric(horizontal: 35.0.w),
@@ -278,8 +545,7 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     height: double.infinity,
     child: Row(
     mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment:
-    MainAxisAlignment.end,
+    mainAxisAlignment: MainAxisAlignment.end,
     crossAxisAlignment:
     CrossAxisAlignment.center,
     children: [
@@ -304,74 +570,13 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     },
     ),
     ),
-                      if (selectedTeachers.isNotEmpty)
-    SizedBox(height: 20.0.h),
+    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
     SizedBox(height: 20.0.h),
     Padding(
     padding: EdgeInsets.symmetric(horizontal: 35.0.w),
     child: ElevatedButton(
     onPressed: () async {
-    if (SignUpCubit.get(context)
-        .formKey
-        .currentState!
-        .validate()) {
-    if (widget.isCoach) {
-  SignUpCubit.get(context).addUser(
-  role: 'coach',
-  fName: SignUpCubit.get(context).firstNameController.text,
-  lName: SignUpCubit.get(context).lastNameController.text,
-  phone: SignUpCubit.get(context).phoneController.text.trim(),
-  password: SignUpCubit.get(context).passwordController.text,
-  hourlyRate: '30',
-  teachers: selectedTeachers,
-).then((_) async {
-  if (context.read<SignUpCubit>().shouldSendWhatsApp == true
-  //&&
-  //todo:fix this
-  //    state is SignUpSuccessState
-  ) {
-    await context.read<SignUpCubit>().sendWhatsAppMessage(
-      phone: SignUpCubit.get(context).phoneController.text.trim(),
-      uId: '23rtgyuhijkljnhgsax',
-      name: '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}',
-    );
-  }
-});
-    } else {
-      SignUpCubit.get(context).addTrainee(
-        fname: SignUpCubit.get(context)
-            .firstNameController
-            .text,
-        lname: SignUpCubit.get(context)
-            .lastNameController
-            .text,
-        phone: SignUpCubit.get(context)
-            .phoneController
-            .text
-            .trim(),
-        password: SignUpCubit.get(context)
-            .passwordController
-            .text,
-      );
-    }
-    }
-    if (context.read<SignUpCubit>().shouldSendWhatsApp == true
-        //&&
-    //    state is SignUpSuccessState
-    ) {
-      await context.read<SignUpCubit>().sendWhatsAppMessage(
-        phone: SignUpCubit.get(context)
-            .phoneController
-            .text
-            .trim(),
-        uId: '23rtgyuhijkljnhgsax',
-        name: '${SignUpCubit.get(context)
-            .firstNameController
-            .text} ${SignUpCubit.get(context)
-            .lastNameController
-            .text}',
-      );
-    }
+      handleRegistration();
     },
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF2196F3),
@@ -490,4 +695,77 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
       },
     );
   }
+}
+// models/mark_model.dart
+class MarkModel {
+  final String id;
+  final double mark;
+  final String examRange;
+  final String teacherName;
+  final String studentId;
+  final DateTime timestamp;
+
+  MarkModel({
+    required this.id,
+    required this.mark,
+    required this.examRange,
+    required this.teacherName,
+    required this.studentId,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'mark': mark,
+    'examRange': examRange,
+    'teacherName': teacherName,
+    'studentId': studentId,
+    'timestamp': timestamp,
+  };
+
+  factory MarkModel.fromJson(Map<String, dynamic> json) => MarkModel(
+    id: json['id'],
+    mark: json['mark'].toDouble(),
+    examRange: json['examRange'],
+    teacherName: json['teacherName'],
+    studentId: json['studentId'],
+    timestamp: (json['timestamp'] as Timestamp).toDate(),
+  );
+}
+
+// models/subscription_model.dart
+class SubscriptionModel {
+  final String id;
+  final double amount;
+  final String teacherName;
+  final String studentId;
+  final DateTime timestamp;
+  final bool active;
+
+  SubscriptionModel({
+    required this.id,
+    required this.amount,
+    required this.teacherName,
+    required this.studentId,
+    required this.timestamp,
+    this.active = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'amount': amount,
+    'teacherName': teacherName,
+    'studentId': studentId,
+    'timestamp': timestamp,
+    'active': active,
+  };
+
+  factory SubscriptionModel.fromJson(Map<String, dynamic> json) => SubscriptionModel(
+    id: json['id'],
+    amount: json['amount'].toDouble(),
+    teacherName: json['teacherName'],
+    studentId: json['studentId'],
+    timestamp: (json['timestamp'] as Timestamp).toDate(),
+    active: json['active'] ?? true,
+  );
 }

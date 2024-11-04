@@ -2,7 +2,7 @@ import 'package:admin_future/registeration/business_logic/auth_cubit/sign_up_cub
 import 'package:admin_future/registeration/data/userModel.dart';
 import 'package:admin_future/registeration/business_logic/auth_cubit/login_cubit.dart';
 import 'package:admin_future/registeration/presenation/SignUpScreen.dart';
-import 'package:admin_future/manage_users_coaches/presenation/add_coach_screen.dart';
+import 'package:admin_future/manage_users_coaches/presenation/add_student_screen.dart';
 import 'package:admin_future/registeration/presenation/login_screen.dart';
 import 'package:admin_future/registeration/presenation/welcome_screen.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +14,7 @@ import 'add_grouup_of_schedules/presentation/onboarding_screen.dart';
 import 'core/constants/routes_manager.dart';
 import 'core/constants/strings.dart';
 import 'home/presenation/widget/add_schedule.dart';
-import 'manage_users_coaches/presenation/edit_users.dart';
+import 'manage_users_coaches/presenation/edit_students_info.dart';
 import 'home/presenation/widget/home_layout.dart';
 import 'home/presenation/widget/manage_attendence.dart';
 import 'manage_users_coaches/business_logic/manage_students_cubit.dart';
@@ -160,7 +160,7 @@ class RouteGenerator {
                   child: SignInScreen(),
                 ));
       case AppRoutes.home:
-        return MaterialPageRoute(builder: (_) => const HomeLayout());
+        return MaterialPageRoute(builder: (_) =>  HomeLayout());
       // manage attendence
       //case AppRoutes.manageAttendence:
       //  return MaterialPageRoute(builder: (_) => const ManageAttendence());

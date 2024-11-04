@@ -44,7 +44,7 @@ android {
 
     defaultConfig {
         applicationId "com.mycompany.admin" // Preserve the package name
-        minSdkVersion 19 // Adjust as per your requirements
+        minSdkVersion 21 // Adjust as per your requirements
         targetSdkVersion 34 // Match the first Gradle
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

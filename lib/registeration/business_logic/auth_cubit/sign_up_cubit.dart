@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:barcode_image/barcode_image.dart';
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -196,113 +198,74 @@ class SignUpCubit extends Cubit<SignUpState> {
   }
 
 
-  Future<void> addUser({
+  Future<String?> addUser({
     required String lName,
     required String fName,
     required String phone,
     required String password,
-    required String role,  String? hourlyRate, required List<String> teachers,
-
+    required String role,
+    String? hourlyRate,
+    required List<String> teachers,
   }) async {
     emit(SignUpLoadingState());
-    //     //if password is empty
-    if (password.isEmpty) {
-      password = '123456';
-    }
-    saveUserToContactList(name: fName + ' ' + lName, phoneNumber: phone);
-    //if phone number is arabic number start with ٠١ turn it into english number
-    if (phone.startsWith('٠١')) {
-      phone = phone.replaceAll('٠', '0');
-      phone = phone.replaceAll('١', '1');
-      phone = phone.replaceAll('٢', '2');
-      phone = phone.replaceAll('٣', '3');
-      phone = phone.replaceAll('٤', '4');
-      phone = phone.replaceAll('٥', '5');
-      phone = phone.replaceAll('٦', '6');
-      phone = phone.replaceAll('٧', '7');
-      phone = phone.replaceAll('٨', '8');
-      phone = phone.replaceAll('٩', '9');
-    }
-    phone = phone.replaceAll(' ', '');
-    if (phone.startsWith('+2')) {
-      phone = phone.substring(2);
-      //delete any spaces
-    }
-    bool isConnect = await checkInternetConnectivity();
-    //if there is no internet connection
-    if (!isConnect  ) {
-      //if role is coach show error
-      if (role == 'coach') {
-        emit(SignUpErrorState(
-          error: 'لا يمكنك التسجيل كمدرب بدون انترنت',
-        ));
-        showToast(
-          msg: 'لا يمكنك التسجيل كمدرب بدون انترنت',
-          state: ToastStates.ERROR,
-        );
-        return;
+    try {
+      if (password.isEmpty) {
+        password = '123456';
       }
-      //if role is admin
-      //create user with random id
-      String uId = Uuid().v4();
-      // createUser(
-      //   role: role,
-      //   isUser: true,
-      //   // paasword: password,
-      //   // branches: selectedItems,
-      //   uId: //random id using uuid package
-      //   uId,
-      //   phone: phone,
-      //   fname: fName,
-      //   lname: lName,
-      //   hourlyRate :  int.parse(hourlyRate??'30')??30,
-      // );
-      showToast(
-        msg: 'تم التسجيل بنجاح',
-        state: ToastStates.SUCCESS,
+
+      // Phone number processing
+      if (phone.startsWith('٠١')) {
+        phone = phone.replaceAll('٠', '0')
+            .replaceAll('١', '1')
+            .replaceAll('٢', '2')
+            .replaceAll('٣', '3')
+            .replaceAll('٤', '4')
+            .replaceAll('٥', '5')
+            .replaceAll('٦', '6')
+            .replaceAll('٧', '7')
+            .replaceAll('٨', '8')
+            .replaceAll('٩', '9');
+      }
+      phone = phone.replaceAll(' ', '');
+      if (phone.startsWith('+2')) {
+        phone = phone.substring(2);
+      }
+
+      bool isConnect = await checkInternetConnectivity();
+      if (!isConnect) {
+        if (role == 'coach') {
+          emit(SignUpErrorState(error: 'لا يمكنك التسجيل كمدرب بدون انترنت'));
+          showToast(msg: 'لا يمكنك التسجيل كمدرب بدون انترنت', state: ToastStates.ERROR);
+          return null;
+        }
+        String uId = const Uuid().v4();
+        showToast(msg: 'تم التسجيل بنجاح', state: ToastStates.SUCCESS);
+        _clearControllers();
+        emit(SignUpSuccessState(uId));
+        return uId;
+      }
+
+      String? adminEmail = FirebaseAuth.instance.currentUser!.email;
+      String adminUid = FirebaseAuth.instance.currentUser!.uid;
+      await FirebaseAuth.instance.signOut();
+
+      // Create new user
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: '$phone@placeholder.com',
+          password: password
       );
-      firstNameController.clear();
-      lastNameController.clear();
-      phoneController.clear();
-      passwordController.clear();
-      hourlyRateController.clear();
 
-      //sign out from admin account
-      emit(SignUpSuccessState(uId));
-      return;
-    }
+      final newUid = userCredential.user!.uid;
 
-    String? adminEmail = FirebaseAuth.instance.currentUser!.email;
-    String? uId = Uuid().v4();
-    String? adminUid = FirebaseAuth.instance.currentUser!.uid;
-    await FirebaseAuth.instance.signOut();
-    FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: '$phone@placeholder.com',
-        password: password
-    ).then((value) async {
-      print('uid\n');
-      print(value.user!.uid);
-      // createUser(
-      //   role: role,
-      //   isUser: true,
-      //   // paasword: password,
-      //   // branches: selectedItems,
-      //   uId: value.user!.uid,
-      //   phone: phone,
-      //   fname: fName,
-      //   lname: lName,
-      //
-      //   hourlyRate :  int.parse(hourlyRate??'30')??30,
-      // );
       UserModel model = UserModel(
         role: 'coach',
-        hourlyRate:  int.parse(hourlyRate??'30')??30,
+        hourlyRate: int.parse(hourlyRate ?? '30'),
         totalHours: 0,
         totalSalary: 0,
         currentMonthHours: 0,
         currentMonthSalary: 0,
-        name: fName! + ' ' + lName!,
-        uId: value.user!.uid,
+        name: '$fName $lName',
+        uId: newUid,
         lname: lName,
         fname: fName,
         token: '',
@@ -310,117 +273,79 @@ class SignUpCubit extends Cubit<SignUpState> {
         pid: adminUid,
         numberOfSessions: 0,
         date: Timestamp.now(),
-        branches:[],
+        branches: [],
         password: password,
         teachers: teachers,
       );
-//
-//       saveUserToContactList(
-//         name: fName + ' ' + lName,
-//         phoneNumber: phone!,
-//       );
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(value.user!.uid)
-          .set(model.toMap());
-      String? adminPassword;
-      String? adminPhone;
-      //get email from firebase and send it to admin to add it to his list
+
       await FirebaseFirestore.instance
+          .collection('users')
+          .doc(newUid)
+          .set(model.toMap());
+
+      // Re-authenticate admin
+      final adminDoc = await FirebaseFirestore.instance
           .collection('admins')
           .doc(adminUid)
-          .get().then((value) async {
-        showToast(
-          msg: 'تم التسجيل بنجاح',
-          state: ToastStates.SUCCESS,
-        );
-        //sign out from user account
-        await FirebaseAuth.instance.signOut();
-        adminPhone = value.data()?['phone'];
-        adminPassword = value.data()?['password'];
-        if (kDebugMode) {
-          print(adminEmail);
-          print(adminPassword);
-        }
-        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: '$adminPhone@placeholder.com',
-          password: adminPassword!,
-        );
-        if (kDebugMode) {
-          print(userCredential.user!.uid);
-        }
-      }
+          .get();
 
-      );
+      final adminPhone = adminDoc.data()?['phone'];
+      final adminPassword = adminDoc.data()?['password'];
+
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: '$adminPhone@placeholder.com',
         password: adminPassword!,
       );
 
-      //clear text fields
-      // showToast(
-      //           msg: 'تم التسجيل بنجاح',
-      //           state: ToastStates.SUCCESS,
-      //         );
-      firstNameController.clear();
-      lastNameController.clear();
-      phoneController.clear();
-      passwordController.clear();
-      hourlyRateController.clear();
-      //sign out from admin account
-      emit(SignUpSuccessState(value.user!.uid));
+      _clearControllers();
+      showToast(msg: 'تم التسجيل بنجاح', state: ToastStates.SUCCESS);
+      emit(SignUpSuccessState(newUid));
+      return newUid;
 
-    }).catchError((error) {
-
+    } catch (error) {
       String? errorMessage;
-      print('erro \n'+error.toString());
-      switch (error.code) {
-      //case user already exists
-        case "email-already-in-use":
-          if (kDebugMode) {
-            print(errorMessage);
+      print('Error in addUser: $error');
+
+      if (error is FirebaseAuthException) {
+        switch (error.code) {
+          case "email-already-in-use":
             errorMessage = 'The account already exists for that email.';
-          }
-          break;
-        case "invalid-email":
-          if (kDebugMode) {
-            print(errorMessage);
+            break;
+          case "invalid-email":
             errorMessage = 'The email address is badly formatted.';
-          }
-          break;
-        case "user-not-found":
-          if (kDebugMode) {
-            print(errorMessage);
+            break;
+          case "user-not-found":
             errorMessage = 'No user found for that email.';
-          }
-          break;
-        case "wrong-password":
-          if (kDebugMode) {
-            print(errorMessage);
+            break;
+          case "wrong-password":
             errorMessage = 'Wrong password provided for that user.';
-          }
-          break;
-        default:
-          if (kDebugMode) {
+            break;
+          default:
             errorMessage = 'The error is $error';
-            print(errorMessage);
-          }
+        }
+      } else {
+        errorMessage = 'An unexpected error occurred';
       }
-      emit(SignUpErrorState(
-        error: errorMessage,
-      ));
-      //show toast error contain error message
-      showToast(
-        msg: errorMessage??'',
-        state: ToastStates.ERROR,
-      );
-    });
+
+      emit(SignUpErrorState(error: errorMessage));
+      showToast(msg: errorMessage, state: ToastStates.ERROR);
+      return null;
+    }
   }
+  void _clearControllers() {
+    firstNameController.clear();
+    lastNameController.clear();
+    phoneController.clear();
+    passwordController.clear();
+    hourlyRateController.clear();
+  }
+
   bool shouldSendWhatsApp = false;
 
 
 
-  sendWhatsAppMessage({
+
+  Future<void> sendWhatsAppMessage({
     required String phone,
     required String uId,
     required String name,
@@ -432,50 +357,69 @@ class SignUpCubit extends Cubit<SignUpState> {
       final tempDir = await getTemporaryDirectory();
       final barcodeFile = File('${tempDir.path}/barcode.png');
 
-      // Create QR painter directly instead of using widget
-      final qrPainter = QrPainter(
-        data: uId,
-        version: QrVersions.auto,
-        gapless: true,
-        color: const Color(0xFF000000),
-        emptyColor: const Color(0xFFFFFFFF),
-        errorCorrectionLevel: QrErrorCorrectLevel.H,
+      // Create barcode widget for rendering
+      final barcodeWidget = RepaintBoundary(
+        child: Container(
+          color: Colors.white,
+          width: 300,
+          height: 100,
+          child: BarcodeWidget(
+            barcode: Barcode.code128(),
+            data: uId,
+            width: 300,
+            height: 100,
+            color: Colors.black,
+          ),
+        ),
       );
 
-      // Generate the image directly
-      final qrImage = await qrPainter.toImage(200);
-      final byteData = await qrImage.toByteData(format: ui.ImageByteFormat.png);
+      // Get the RenderRepaintBoundary
+      final RenderRepaintBoundary boundary = RenderRepaintBoundary();
+      //final BuildContext? context = barcodeWidget.key?.currentContext;
+
+      // Build the widget
+      final PipelineOwner pipelineOwner = PipelineOwner();
+      final BuildOwner buildOwner = BuildOwner();
+
+      final Element element = barcodeWidget.createElement();
+      buildOwner.buildScope(element);
+      buildOwner.finalizeTree();
+      pipelineOwner.rootNode = boundary;
+      boundary.attach(pipelineOwner);
+      boundary.layout(BoxConstraints.tight(const Size(300, 100)));
+
+      // Paint it
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData == null) {
-        throw Exception('Failed to generate QR code image');
+        throw Exception('Failed to generate barcode image');
       }
 
-      // Save the QR code image
+      // Save the barcode image
       await barcodeFile.writeAsBytes(byteData.buffer.asUint8List());
-      print('QR code generated and saved to ${barcodeFile.path}');
+      print('Barcode generated and saved to ${barcodeFile.path}');
 
       // Prepare WhatsApp message
       final message = 'مرحباً $name!\n'
           'معرف حسابك هو: $uId\n'
           'يرجى الاحتفاظ بهذه المعلومات للرجوع إليها لاحقاً.';
 
-      // Create an XFile object for sharing
+      // Share message and barcode image
       final xFile = XFile(barcodeFile.path);
-
-      // Share message and QR code image via WhatsApp
       await Share.shareXFiles(
         [xFile],
         text: message,
         subject: 'معرف الحساب',
-        sharePositionOrigin: const Rect.fromLTWH(0, 0, 100, 100),
       );
-      print('WhatsApp message sent with QR code image');
+      print('WhatsApp message sent with barcode image');
 
     } catch (e) {
       print('Error in sendWhatsAppMessage: $e');
       rethrow;
     }
   }
+
 
 // Alternative implementation using BuildContext if you need to use QrImageView
   Future<void> sendWhatsAppMessageWithContext(
