@@ -335,7 +335,7 @@ part 'manage_students_state.dart';
       try {
         final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
             .collection('users')
-            .where('role', isEqualTo: 'user')
+            //.where('role', isEqualTo: 'user')
             .orderBy('name') // Add consistent ordering
             .limit(12)
         //server then

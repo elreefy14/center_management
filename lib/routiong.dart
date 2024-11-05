@@ -21,6 +21,8 @@ import 'manage_users_coaches/business_logic/manage_students_cubit.dart';
 import 'manage_users_coaches/presenation/manage_users_screen.dart';
 import 'home/presenation/widget/manage_schedules_screen.dart';
 import 'manage_users_coaches/presenation/mange_students_screen.dart';
+import 'manage_users_coaches/presenation/marks_management_screen.dart';
+import 'manage_users_coaches/presenation/subscriptions_management_screen.dart';
 
 
 class RouteGenerator {
@@ -211,7 +213,23 @@ class RouteGenerator {
       //                                  AppRoutes.editProfile,
       //
     //                                  arguments: ManageSalaryCubit.get(context).users[index]);
-     //TODO:DELETE COMMENTS !!!!!!!!!!
+     //MarksManagementScreen
+    case AppRoutes.markManagement:
+      args = settings.arguments as Map<String, dynamic>;
+      return MaterialPageRoute(builder: (_) =>  MarksManagementScreen(
+        studentName: (args as Map<String, dynamic>)?['studentName'],
+         userId: (args as Map<String, dynamic>)?['userId'],
+
+
+      ));
+      //subscription Management
+      case AppRoutes.subscriptionManagement:
+        args = settings.arguments as Map<String, dynamic>;
+
+        return MaterialPageRoute(builder: (_) =>  SubscriptionManagementScreen(
+          studentName: (args as Map<String, dynamic>)?['studentName'],
+          userId: (args as Map<String, dynamic>)?['userId'],
+        ));
       case AppRoutes.editProfile:
   return MaterialPageRoute(
     builder: (_) => BlocProvider(

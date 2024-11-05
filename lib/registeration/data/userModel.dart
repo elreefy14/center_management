@@ -25,6 +25,8 @@ class UserModel
   String? password;
   //teachers
   List<String>? teachers;
+  List<String>? attendanceDates; // Add this line
+
 
 
 
@@ -46,6 +48,7 @@ class UserModel
     this.token,
     this.branches,
     this.pid, this.numberOfSessions,
+    this.attendanceDates, // Add this line
     this.date, this.password, required List<String> teachers,
   });
 
@@ -97,6 +100,8 @@ class UserModel
     data['numberOfSessions'] = this.numberOfSessions;
     data['date'] = this.date;
     data['password'] = this.password;
+    data['attendanceDates'] = this.attendanceDates; // Add this line
+
     data['teachers'] = this.teachers;
 
     return data;
@@ -126,6 +131,8 @@ class UserModel
       'date': date,
       'password': password,
       'teachers': teachers,
+      'attendanceDates': attendanceDates, // Add this line
+
     };
 
   }

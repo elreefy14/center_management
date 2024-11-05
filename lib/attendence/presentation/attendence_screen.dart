@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:logger/logger.dart';
 
 abstract class AttendanceState {}
 
@@ -77,6 +78,7 @@ class AttendanceRecord {
 }
 
 // attendance_cubit.dart
+
 class AttendanceCubit extends Cubit<AttendanceState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const int _pageSize = 20;
@@ -87,91 +89,11 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   AttendanceCubit() : super(AttendanceInitial());
 
-  Future<void> handleBarcodeScanned(String studentId, BuildContext context) async {
-    try {
-      emit(AttendanceLoading());
-
-      final WriteBatch batch = _firestore.batch();
-      final DateTime now = DateTime.now();
-
-      // Get student data
-      final studentDoc = await _firestore.collection('users').doc(studentId).get();
-      if (!studentDoc.exists) {
-        throw Exception('Student not found');
-      }
-
-      final String studentName = '${studentDoc.get('fname')} ${studentDoc.get('lname')}';
-
-      final Map<String, dynamic> attendanceData = {
-        'studentId': studentId,
-        'studentName': studentName,
-        'timestamp': now,
-        'date': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-        'year': now.year,
-        'month': now.month,
-        'day': now.day,
-        'hour': now.hour,
-        'minute': now.minute,
-      };
-
-      // Add to student's attendance subcollection
-      final studentAttendanceRef = _firestore
-          .collection('users')
-          .doc(studentId)
-          .collection('attendance')
-          .doc('${now.year}-${now.month}-${now.day}');
-
-      batch.set(studentAttendanceRef, attendanceData);
-
-      // Add to general attendance collection
-      final generalAttendanceRef = _firestore
-          .collection('attendance')
-          .doc('${now.year}-${now.month}-${now.day}-$studentId');
-
-      batch.set(generalAttendanceRef, attendanceData);
-
-      // Update student's attendance summary
-      final studentRef = _firestore.collection('users').doc(studentId);
-      batch.update(studentRef, {
-        'lastAttendance': now,
-        'attendanceDates': FieldValue.arrayUnion([attendanceData['date']]),
-      });
-
-      await batch.commit();
-
-      // Reload attendance list if we're viewing today's attendance
-      if (_selectedDate?.year == now.year &&
-          _selectedDate?.month == now.month &&
-          _selectedDate?.day == now.day) {
-        await loadAttendance(_selectedDate!);
-      }
-
-      emit(AttendanceAdded());
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تسجيل الحضور بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (error) {
-      print('Error recording attendance: $error');
-      emit(AttendanceError('حدث خطأ أثناء تسجيل الحضور'));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('حدث خطأ أثناء تسجيل الحضور'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   Future<void> loadAttendance(DateTime date, {bool refresh = false}) async {
     try {
       if (refresh) {
         _lastDocument = null;
-        _records = [];
+        _records.clear();
         _hasMore = true;
       }
 
@@ -193,7 +115,6 @@ class AttendanceCubit extends Cubit<AttendanceState> {
       }
 
       final querySnapshot = await query.get();
-
       if (querySnapshot.docs.isEmpty) {
         _hasMore = false;
         emit(AttendanceLoaded(_records, hasMore: false));
@@ -206,24 +127,27 @@ class AttendanceCubit extends Cubit<AttendanceState> {
           .map((doc) => AttendanceRecord.fromJson(doc.data() as Map<String, dynamic>))
           .toList();
 
-      _records.addAll(newRecords);
+      _records.addAll(newRecords.where((newRecord) => !_records.any((record) => record.studentId == newRecord.studentId && record.date == newRecord.date)));
+
       _hasMore = querySnapshot.docs.length == _pageSize;
 
       emit(AttendanceLoaded(_records, hasMore: _hasMore));
     } catch (error) {
-      print('Error loading attendance: $error');
       emit(AttendanceError('حدث خطأ أثناء تحميل سجلات الحضور'));
     }
   }
 
   void resetPagination() {
     _lastDocument = null;
-    _records = [];
+    _records.clear();
     _hasMore = true;
   }
 }
 
+
 // attendance_screen.dart
+
+
 class AttendanceScreen extends StatefulWidget {
   @override
   _AttendanceScreenState createState() => _AttendanceScreenState();
@@ -239,7 +163,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     super.initState();
     _attendanceCubit = context.read<AttendanceCubit>();
     _attendanceCubit.loadAttendance(selectedDate, refresh: true);
-
     _scrollController.addListener(_onScroll);
   }
 
@@ -263,8 +186,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
       body: BlocBuilder<AttendanceCubit, AttendanceState>(
         builder: (context, state) {
-          if (state is AttendanceLoading &&
-              !(state is AttendanceLoaded)) {
+          if (state is AttendanceLoading && !(state is AttendanceLoaded)) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -323,6 +245,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
+
 // attendance_record_tile.dart
 class AttendanceRecordTile extends StatelessWidget {
   final AttendanceRecord record;
@@ -332,53 +255,67 @@ class AttendanceRecordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 5,
-            offset: Offset(0, 2),
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.chevron_right,
-            color: Colors.green,
-            size: 24,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.studentName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${record.date} - ${record.hour}:${record.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'الطالب: ${record.studentName}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'التاريخ: ${record.date}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'الوقت: ${record.hour}:${record.minute.toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
