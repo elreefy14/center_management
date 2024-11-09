@@ -9,6 +9,8 @@ import 'package:logger/logger.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../attendence/attendence_cubit.dart';
+import '../../../core/excel_exports_service.dart';
+import '../../../core/fcm_helper.dart';
 import '../../../manage_users_coaches/presenation/add_student_screen.dart';
 import '../../../manage_users_coaches/presenation/mange_students_screen.dart';
 
@@ -22,6 +24,8 @@ class HomeLayout extends StatefulWidget {
 
 class _HomeLayoutState extends State<HomeLayout> {
   int currentIndex = 0;
+  final excelExportService = ExcelExportService();
+  bool isExporting = false;
   final List<Widget> screens = [
     const ManageStudentsScreen(),
      QRScannerScreen(),
@@ -54,6 +58,41 @@ class _HomeLayoutState extends State<HomeLayout> {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
+      appBar:
+      //if list of titles is الحضور then show container else show appbar
+      currentIndex == 2 || currentIndex == 1
+          ? null
+          :
+      AppBar(
+        backgroundColor: const Color(0xFF4869E8),
+        title: Text(
+          listOfTitles[currentIndex],
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          if (currentIndex == 0)
+            IconButton(
+              icon: isExporting
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Icon(Icons.file_download, color: Colors.white),
+              onPressed: isExporting
+                  ? null
+                  : () async {
+                //show toast that can take some time
+                const snackBar = SnackBar(
+                  content: Text('جاري تصدير البعيانات...'),
+                  duration: Duration(seconds: 1),
+                );
+                setState(() => isExporting = true);
+                await excelExportService.exportUsersData();
+                setState(() => isExporting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم تصدير البيانات بنجاح')),
+                );
+              },
+            ),
+        ],
+      ),
       body: screens[currentIndex],
       bottomNavigationBar: Container(
         height: 67.h,
@@ -140,31 +179,64 @@ class QRScannerScreen extends StatelessWidget {
    QRScannerScreen({Key? key}) : super(key: key);
 
 
-final logger = Logger();
+   final logger = Logger();
+   String? lastScannedCode;
+   DateTime? lastScanTime;
 
-   Future<void> _handleBarcodeScanned(String scannedUid, BuildContext context) async {
+   Future<void> handleBarcodeScanned(String scannedUid, BuildContext context) async {
+     // Prevent duplicate scans
+     if (lastScannedCode == scannedUid &&
+         lastScanTime != null &&
+         DateTime.now().difference(lastScanTime!) < const Duration(seconds: 3)) {
+       return;
+     }
+
+     lastScannedCode = scannedUid;
+     lastScanTime = DateTime.now();
+
      try {
-       logger.d('Starting _handleBarcodeScanned with UID: $scannedUid');
+       logger.d('Starting handleBarcodeScanned with UID: $scannedUid');
+       final firestore = FirebaseFirestore.instance;
 
-       final FirebaseFirestore firestore = FirebaseFirestore.instance;
-
-       // First verify if the student exists
+       // Get student data
        final studentDoc = await firestore.collection('users').doc(scannedUid).get();
        if (!studentDoc.exists) {
          throw Exception('Student not found');
        }
 
-       final WriteBatch batch = firestore.batch();
+       final studentData = studentDoc.data()!;
+       final String studentName = '${studentData['fname']} ${studentData['lname']}';
+       final List<String> deviceTokens = List<String>.from(studentData['deviceTokens'] ?? []);
+
+       // Check for existing attendance
        final DateTime now = DateTime.now();
+       final String dateString = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-       // Get the student name from Firestore
-       final String studentName = '${studentDoc.get('fname')} ${studentDoc.get('lname')}';
+       final existingAttendance = await firestore
+           .collection('users')
+           .doc(scannedUid)
+           .collection('attendance')
+           .doc(dateString)
+           .get();
 
-       final Map<String, dynamic> attendanceData = {
+       if (existingAttendance.exists) {
+         //_showMessage(context, 'تم تسجيل حضور $studentName مسبقاً اليوم', Colors.orange);
+          //snackbar message for already attendance
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تسجيل الحضور مسبقاً اليوم'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+         return;
+       }
+
+       // Create attendance data
+       final attendanceData = {
          'studentId': scannedUid,
          'studentName': studentName,
          'timestamp': now,
-         'date': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+         'date': dateString,
          'year': now.year,
          'month': now.month,
          'day': now.day,
@@ -172,73 +244,100 @@ final logger = Logger();
          'minute': now.minute,
        };
 
-       logger.d('Attendance data: $attendanceData');
+       // Create notification data
+       final notificationData = {
+         'type': 'attendance',
+         'message': 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
+         'timestamp': now,
+         'read': false,
+       };
 
-       // Check if attendance already recorded for today
-       final existingAttendance = await firestore
-           .collection('users')
-           .doc(scannedUid)
-           .collection('attendance')
-           .doc('${now.year}-${now.month}-${now.day}')
-           .get();
+       // Batch write operations
+       final batch = firestore.batch();
 
-       if (existingAttendance.exists) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: Text('تم تسجيل حضور $studentName مسبقاً اليوم'),
-             backgroundColor: Colors.orange,
-           ),
-         );
-         return;
-       }
-
-       // Add to student's attendance subcollection
+       // 1. Record attendance in student's subcollection
        batch.set(
            firestore
                .collection('users')
                .doc(scannedUid)
                .collection('attendance')
-               .doc('${now.year}-${now.month}-${now.day}'),
+               .doc(dateString),
            attendanceData
        );
 
-       // Add to general attendance collection
+       // 2. Record in general attendance collection
        batch.set(
            firestore
                .collection('attendance')
-               .doc('${now.year}-${now.month}-${now.day}-$scannedUid'),
+               .doc('$dateString-$scannedUid'),
            attendanceData
        );
 
-       // Update student's attendance summary
+       // 3. Add notification to student's subcollection
+       batch.set(
+           firestore
+               .collection('users')
+               .doc(scannedUid)
+               .collection('notifications')
+               .doc(),
+           notificationData
+       );
+
+       // 4. Update student's attendance summary
        batch.update(
            firestore.collection('users').doc(scannedUid),
            {
              'lastAttendance': now,
-             'attendanceDates': FieldValue.arrayUnion([attendanceData['date']]),
+             'attendanceDates': FieldValue.arrayUnion([dateString]),
            }
        );
 
        await batch.commit();
+
+       // Send FCM notifications
+       if (deviceTokens.isNotEmpty) {
+         for (final token in deviceTokens) {
+           await FCMService.sendNotification(
+             token: token,
+             title: 'تسجيل الحضور',
+             body: 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
+             data: {
+               'type': 'attendance',
+               'date': dateString,
+               'timestamp': now.millisecondsSinceEpoch.toString(),
+             },
+           );
+         }
+       }
+
+
+       //_showMessage(context, 'تم تسجيل حضور $studentName بنجاح', Colors.green);
+       //snackbar message for success attendance
+       ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(
+           content: Text('تم تسجيل الحضور بنجاح'),
+           duration: Duration(seconds: 1),
+         ),
+       );
+
        logger.d('Attendance recorded successfully');
 
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text('تم تسجيل حضور $studentName بنجاح'),
-           backgroundColor: Colors.green,
-         ),
-       );
      } catch (error) {
        logger.e('Error recording attendance: $error');
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text('حدث خطأ أثناء تسجيل الحضور: ${error.toString()}'),
-           backgroundColor: Colors.red,
-         ),
-       );
+       // _showMessage(
+       //     context,
+       //     'حدث خطأ أثناء تسجيل الحضور: ${error.toString()}',
+       //     Colors.red
+       // );
+        //snackbar message for error attendance
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('حدث خطأ أثناء تسجيل الحضور'),
+            duration: Duration(seconds: 1),
+          ),
+        );
      }
-   }
-  @override
+   }  @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
     final double scannerSize = screenSize.width * .85;
@@ -273,7 +372,7 @@ final logger = Logger();
                           final String scannedValue = capture.barcodes[0].rawValue ?? '';
                           if (scannedValue.isNotEmpty) {
                             logger.d('Scanned barcode value: $scannedValue');
-                            await _handleBarcodeScanned(scannedValue, context);
+                            await handleBarcodeScanned(scannedValue, context);
                           }
                         }
                       },

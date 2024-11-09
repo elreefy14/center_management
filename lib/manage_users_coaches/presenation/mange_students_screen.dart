@@ -357,7 +357,7 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     return BlocProvider<ManageStudentsCubit>(
       create: (context) => _cubit,
       child: Scaffold(
-        appBar: AppBar(title: const Text('إدارة الطلاب')),
+     //   appBar: AppBar(title: const Text('إدارة الطلاب')),
         floatingActionButton: _showRollbackButton
             ?
         //Container(

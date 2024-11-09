@@ -1,17 +1,26 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dio/dio.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../Notification/data/Notification.dart';
+import '../../core/fcm_helper.dart';
 import '../../registeration/data/userModel.dart';
 import '../../registeration/presenation/widget/widget.dart';
 import '../presenation/add_student_screen.dart';
 import '../presenation/mange_students_screen.dart';
 
 part 'manage_students_state.dart';
-
+class NotificationError extends ManageStudentsState {
+  final String message;
+  NotificationError(this.message);
+}
 
   class ManageStudentsCubit extends Cubit<ManageStudentsState> {
     ManageStudentsCubit()
@@ -35,22 +44,67 @@ part 'manage_students_state.dart';
       try {
         final docRef = FirebaseFirestore.instance.collection('users').doc();
         final markId = docRef.id;
+        final timestamp = DateTime.now();
 
+        // 1. Create mark data
         final markData = MarkModel(
           id: markId,
           mark: mark,
           examRange: examRange,
           teacherName: teacherName,
           studentId: studentId,
-          timestamp: DateTime.now(),
+          timestamp: timestamp,
         ).toJson();
 
-        await FirebaseFirestore.instance
+        // 2. Get user's device tokens
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .get();
+
+        final List<String> deviceTokens = List<String>.from(userDoc.data()?['deviceTokens'] ?? []);
+
+        // 3. Create notification data
+        final notification = NotificationModel(
+          message: 'تم إضافة درجة جديدة: $mark من $examRange',
+          timestamp: Timestamp.fromDate(timestamp),
+        );
+
+        // 4. Use batch write for atomic operation
+        final batch = FirebaseFirestore.instance.batch();
+
+        // Add mark
+        final markRef = FirebaseFirestore.instance
             .collection('users')
             .doc(studentId)
             .collection('marks')
-            .doc(markId)
-            .set(markData);
+            .doc(markId);
+        batch.set(markRef, markData);
+
+        // Add notification
+        final notificationRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('notifications')
+            .doc();
+        batch.set(notificationRef, notification.toJson());
+
+        // Commit the batch
+        await batch.commit();
+
+        // 5. Send FCM notifications if there are device tokens
+        if (deviceTokens.isNotEmpty) {
+          await sendFCMNotification(
+            deviceTokens: deviceTokens,
+            title: 'درجة جديدة',
+            body: 'تم إضافة درجة جديدة: $mark من $examRange',
+            data: {
+              'type': 'mark',
+              'markId': markId,
+              'studentId': studentId,
+            },
+          );
+        }
 
         return markId;
       } catch (e) {
@@ -66,25 +120,220 @@ part 'manage_students_state.dart';
       try {
         final docRef = FirebaseFirestore.instance.collection('users').doc();
         final subscriptionId = docRef.id;
+        final timestamp = DateTime.now();
 
+        // 1. Create subscription data
         final subscriptionData = SubscriptionModel(
           id: subscriptionId,
           amount: amount,
           teacherName: teacherName,
           studentId: studentId,
-          timestamp: DateTime.now(),
+          timestamp: timestamp,
         ).toJson();
 
-        await FirebaseFirestore.instance
+        // 2. Get user's device tokens
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .get();
+
+        final List<String> deviceTokens = List<String>.from(userDoc.data()?['deviceTokens'] ?? []);
+
+        // 3. Create notification data
+        final notification = NotificationModel(
+          message: 'تم إضافة اشتراك جديد بقيمة $amount',
+          timestamp: Timestamp.fromDate(timestamp),
+        );
+
+        // 4. Use batch write for atomic operation
+        final batch = FirebaseFirestore.instance.batch();
+
+        // Add subscription
+        final subscriptionRef = FirebaseFirestore.instance
             .collection('users')
             .doc(studentId)
             .collection('subscriptions')
-            .doc(subscriptionId)
-            .set(subscriptionData);
+            .doc(subscriptionId);
+        batch.set(subscriptionRef, subscriptionData);
+
+        // Add notification
+        final notificationRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentId)
+            .collection('notifications')
+            .doc();
+        batch.set(notificationRef, notification.toJson());
+
+        // Commit the batch
+        await batch.commit();
+
+        // 5. Send FCM notifications if there are device tokens
+        if (deviceTokens.isNotEmpty) {
+          await sendFCMNotification(
+            deviceTokens: deviceTokens,
+            title: 'اشتراك جديد',
+            body: 'تم إضافة اشتراك جديد بقيمة $amount',
+            data: {
+              'type': 'subscription',
+              'subscriptionId': subscriptionId,
+              'studentId': studentId,
+            },
+          );
+        }
 
         return subscriptionId;
       } catch (e) {
         throw Exception('Failed to add subscription: $e');
+      }
+    }
+
+    Future<void> sendFCMNotification({
+      required List<String> deviceTokens,
+      required String title,
+      required String body,
+      required Map<String, dynamic> data,
+    }) async {
+      try {
+        // Get OAuth access token
+        final accessToken = await FCMService.getAccessToken();
+
+        final dio = Dio(BaseOptions(
+          baseUrl: 'https://fcm.googleapis.com/v1/projects/${Firebase.app().options.projectId}',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        ));
+
+        // Create batch requests for all tokens
+        final List<Future<Response>> requests = deviceTokens.map((token) {
+          return dio.post(
+            '/messages:send',
+            data: {
+              'message': {
+                'token': token,
+                'notification': {
+                  'title': title,
+                  'body': body,
+                },
+                'data': data,
+                'android': {
+                  'priority': 'high',
+                  'notification': {
+                    'channel_id': 'high_importance_channel',
+                    'priority': 'high',
+                    'default_sound': true,
+                    'default_vibrate_timings': true,
+                  },
+                },
+                'apns': {
+                  'payload': {
+                    'aps': {
+                      'sound': 'default',
+                      'badge': 1,
+                      'content-available': 1,
+                    },
+                  },
+                },
+              },
+            },
+          );
+        }).toList();
+
+        // Send all notifications in parallel
+        final responses = await Future.wait(
+          requests,
+          eagerError: false,
+        ).catchError((e) {
+          print('Error sending batch notifications: $e');
+          // Handle error but don't throw to continue processing
+          return <Response>[];
+        });
+
+        // Process responses and handle invalid tokens
+        for (var i = 0; i < responses.length; i++) {
+          try {
+            final response = responses[i];
+            final token = deviceTokens[i];
+
+            if (response.statusCode != 200) {
+              print('Failed to send FCM to token $token: ${response.data}');
+
+              // Check for specific error types
+              if (_isInvalidToken(response.data)) {
+                await _handleInvalidToken(token);
+              }
+            }
+          } catch (e) {
+            print('Error processing response for token ${deviceTokens[i]}: $e');
+          }
+        }
+      } on DioException catch (e) {
+        _handleDioError(e);
+      } catch (e) {
+        print('Unexpected error sending FCM notification: $e');
+      }
+    }
+
+    bool _isInvalidToken(dynamic responseData) {
+      // Check various error conditions that indicate an invalid token
+      if (responseData is Map) {
+        final error = responseData['error']?.toString().toLowerCase();
+        return error?.contains('not-registered') == true ||
+            error?.contains('invalid-argument') == true ||
+            error?.contains('invalid-token') == true;
+      }
+      return false;
+    }
+
+    Future<void> _handleInvalidToken(String token) async {
+      try {
+        // Find users with this token and remove it
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('deviceTokens', arrayContains: token)
+            .get();
+
+        final batch = FirebaseFirestore.instance.batch();
+
+        for (var doc in querySnapshot.docs) {
+          batch.update(doc.reference, {
+            'deviceTokens': FieldValue.arrayRemove([token])
+          });
+        }
+
+        await batch.commit();
+        print('Removed invalid token: $token');
+      } catch (e) {
+        print('Error removing invalid token: $e');
+      }
+    }
+
+    void _handleDioError(DioException e) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+          print('Connection timeout: ${e.message}');
+          emit(NotificationError('Connection timeout'));
+          break;
+        case DioExceptionType.sendTimeout:
+          print('Send timeout: ${e.message}');
+          emit(NotificationError('Send timeout'));
+          break;
+        case DioExceptionType.receiveTimeout:
+          print('Receive timeout: ${e.message}');
+          emit(NotificationError('Receive timeout'));
+          break;
+        case DioExceptionType.badResponse:
+          print('Bad response: ${e.response?.data}');
+          emit(NotificationError('Failed to send notification'));
+          break;
+        case DioExceptionType.cancel:
+          print('Request cancelled: ${e.message}');
+          emit(NotificationError('Request cancelled'));
+          break;
+        default:
+          print('Unexpected Dio error: ${e.message}');
+          emit(NotificationError('Unexpected error'));
       }
     }
 
@@ -113,6 +362,7 @@ part 'manage_students_state.dart';
         throw Exception('Failed to delete subscription: $e');
       }
     }
+
 
 
 
