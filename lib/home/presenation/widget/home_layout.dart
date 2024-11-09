@@ -206,7 +206,7 @@ class QRScannerScreen extends StatelessWidget {
 
        final studentData = studentDoc.data()!;
        final String studentName = '${studentData['fname']} ${studentData['lname']}';
-       final List<String> deviceTokens = List<String>.from(studentData['deviceTokens'] ?? []);
+       final List<String> deviceTokens = List<String>.from(studentData['deviceToken'] ?? []);
 
        // Check for existing attendance
        final DateTime now = DateTime.now();
@@ -296,18 +296,17 @@ class QRScannerScreen extends StatelessWidget {
 
        // Send FCM notifications
        if (deviceTokens.isNotEmpty) {
-         for (final token in deviceTokens) {
+
            await FCMService.sendNotification(
-             token: token,
+             //token: token,
              title: 'تسجيل الحضور',
              body: 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
              data: {
                'type': 'attendance',
                'date': dateString,
                'timestamp': now.millisecondsSinceEpoch.toString(),
-             },
+             }, deviceTokens: deviceTokens,
            );
-         }
        }
 
 

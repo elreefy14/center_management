@@ -56,13 +56,19 @@ class NotificationError extends ManageStudentsState {
           timestamp: timestamp,
         ).toJson();
 
-        // 2. Get user's device tokens
+        // 2. Get user's device tokens and data
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(studentId)
             .get();
 
-        final List<String> deviceTokens = List<String>.from(userDoc.data()?['deviceTokens'] ?? []);
+        if (!userDoc.exists) {
+          throw Exception('User not found');
+        }
+
+        final userData = userDoc.data()!;
+        final List<String> deviceTokens = List<String>.from(userData['deviceToken'] ?? []);
+        final String studentName = '${userData['fname']} ${userData['lname']}';
 
         // 3. Create notification data
         final notification = NotificationModel(
@@ -94,20 +100,30 @@ class NotificationError extends ManageStudentsState {
 
         // 5. Send FCM notifications if there are device tokens
         if (deviceTokens.isNotEmpty) {
-          await sendFCMNotification(
-            deviceTokens: deviceTokens,
-            title: 'درجة جديدة',
-            body: 'تم إضافة درجة جديدة: $mark من $examRange',
-            data: {
-              'type': 'mark',
-              'markId': markId,
-              'studentId': studentId,
-            },
-          );
+          try {
+            await FCMService.sendNotification(
+              deviceTokens: deviceTokens,
+              title: 'درجة جديدة',
+              body: 'تم إضافة درجة جديدة: $mark من $examRange للطالب $studentName',
+              data: {
+                'type': 'mark',
+                'markId': markId,
+                'studentId': studentId,
+                'studentName': studentName,
+                'mark': mark.toString(),
+                'examRange': examRange,
+                'timestamp': timestamp.millisecondsSinceEpoch.toString(),
+              },
+            );
+          } catch (fcmError) {
+            print('Failed to send FCM notification: $fcmError');
+            // Continue execution even if FCM fails
+          }
         }
 
         return markId;
       } catch (e) {
+        print('Error in addMark: $e');
         throw Exception('Failed to add mark: $e');
       }
     }
@@ -131,13 +147,19 @@ class NotificationError extends ManageStudentsState {
           timestamp: timestamp,
         ).toJson();
 
-        // 2. Get user's device tokens
+        // 2. Get user's device tokens and data
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(studentId)
             .get();
 
-        final List<String> deviceTokens = List<String>.from(userDoc.data()?['deviceTokens'] ?? []);
+        if (!userDoc.exists) {
+          throw Exception('User not found');
+        }
+
+        final userData = userDoc.data()!;
+        final List<String> deviceTokens = List<String>.from(userData['deviceToken'] ?? []);
+        final String studentName = '${userData['fname']} ${userData['lname']}';
 
         // 3. Create notification data
         final notification = NotificationModel(
@@ -169,20 +191,30 @@ class NotificationError extends ManageStudentsState {
 
         // 5. Send FCM notifications if there are device tokens
         if (deviceTokens.isNotEmpty) {
-          await sendFCMNotification(
-            deviceTokens: deviceTokens,
-            title: 'اشتراك جديد',
-            body: 'تم إضافة اشتراك جديد بقيمة $amount',
-            data: {
-              'type': 'subscription',
-              'subscriptionId': subscriptionId,
-              'studentId': studentId,
-            },
-          );
+          try {
+            await FCMService.sendNotification(
+              deviceTokens: deviceTokens,
+              title: 'اشتراك جديد',
+              body: 'تم إضافة اشتراك جديد بقيمة $amount للطالب $studentName',
+              data: {
+                'type': 'subscription',
+                'subscriptionId': subscriptionId,
+                'studentId': studentId,
+                'studentName': studentName,
+                'amount': amount.toString(),
+                'teacherName': teacherName,
+                'timestamp': timestamp.millisecondsSinceEpoch.toString(),
+              },
+            );
+          } catch (fcmError) {
+            print('Failed to send FCM notification: $fcmError');
+            // Continue execution even if FCM fails
+          }
         }
 
         return subscriptionId;
       } catch (e) {
+        print('Error in addSubscription: $e');
         throw Exception('Failed to add subscription: $e');
       }
     }
@@ -291,14 +323,14 @@ class NotificationError extends ManageStudentsState {
         // Find users with this token and remove it
         final querySnapshot = await FirebaseFirestore.instance
             .collection('users')
-            .where('deviceTokens', arrayContains: token)
+            .where('deviceToken', arrayContains: token)
             .get();
 
         final batch = FirebaseFirestore.instance.batch();
 
         for (var doc in querySnapshot.docs) {
           batch.update(doc.reference, {
-            'deviceTokens': FieldValue.arrayRemove([token])
+            'deviceToken': FieldValue.arrayRemove([token])
           });
         }
 
