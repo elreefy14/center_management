@@ -16,6 +16,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:workmanager/workmanager.dart';
 import 'core/bloc_observer.dart';
 import 'core/constants/routes_manager.dart';
+import 'firebase_options.dart';
 //import 'package:firebase_messaging/firebase_messaging.dart';
 
 
@@ -100,7 +101,9 @@ Future<void> main() async {
   // use future builder to wait for firebase to be initialized and cache to be initialized
   // await CacheHelper.init();
   //
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   FirebaseFirestore.instance.settings =
   const Settings(
     persistenceEnabled: true,

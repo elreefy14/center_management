@@ -16,6 +16,14 @@ import '../../../manage_users_coaches/presenation/mange_students_screen.dart';
 
 // Main Layout
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
+import 'package:excel/excel.dart' as excel;
+import 'dart:html' as html;
+import 'package:excel/excel.dart' as excel;
+
+
+
 
 class HomeLayout extends StatefulWidget {
   @override
@@ -26,6 +34,75 @@ class _HomeLayoutState extends State<HomeLayout> {
   int currentIndex = 0;
   final excelExportService = ExcelExportService();
   bool isExporting = false;
+
+
+
+  Future<void> exportUsersDataWeb() async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final usersSnapshot = await firestore.collection('users').get();
+
+      var excelFile = excel.Excel.createExcel();
+      excel.Sheet sheetObject = excelFile['Users'];
+
+      // Add headers using cell values
+      final headers = [
+        excel.TextCellValue('Name'),
+        excel.TextCellValue('Email'),
+        excel.TextCellValue('Phone'),
+        excel.TextCellValue('Last Attendance'),
+        excel.TextCellValue('Total Attendance Days')
+      ];
+      sheetObject.appendRow(headers);
+
+      // Add data rows
+      for (var doc in usersSnapshot.docs) {
+        var data = doc.data();
+        final rowData = [
+          excel.TextCellValue('${data['fname']} ${data['lname']}'),
+          excel.TextCellValue(data['email']?.toString() ?? ''),
+          excel.TextCellValue(data['phone']?.toString() ?? ''),
+          excel.TextCellValue(data['lastAttendance']?.toDate()?.toString() ?? ''),
+          excel.TextCellValue((data['attendanceDates'] as List?)?.length?.toString() ?? '0')
+        ];
+        sheetObject.appendRow(rowData);
+      }
+
+      // Style the header row
+      final headerStyle = excel.CellStyle(
+          bold: true,
+         // backgroundColorHex:
+        //  fontColorHex: '#FFFFFF',
+          horizontalAlign: excel.HorizontalAlign.Center
+      );
+
+      // Apply header styles
+      for (var i = 0; i < headers.length; i++) {
+        var cell = sheetObject.cell(excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+        cell.cellStyle = headerStyle;
+      }
+
+      // Auto-fit columns
+      for (var i = 0; i < headers.length; i++) {
+        sheetObject.setColumnWidth(i, 20);
+      }
+
+      // Convert to bytes and download
+      final bytes = excelFile.save();
+      if (bytes != null) {
+        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', 'users_data.xlsx')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      }
+    } catch (e) {
+      print('Export error: $e');
+      rethrow;
+    }
+  }
+
   final List<Widget> screens = [
     const ManageStudentsScreen(),
      QRScannerScreen(),
@@ -174,169 +251,187 @@ class _HomeLayoutState extends State<HomeLayout> {
 }
 
 
-// ... [Previous HomeLayout code remains the same] ...
-class QRScannerScreen extends StatelessWidget {
-   QRScannerScreen({Key? key}) : super(key: key);
 
 
-   final logger = Logger();
-   String? lastScannedCode;
-   DateTime? lastScanTime;
-
-   Future<void> handleBarcodeScanned(String scannedUid, BuildContext context) async {
-     // Prevent duplicate scans
-     if (lastScannedCode == scannedUid &&
-         lastScanTime != null &&
-         DateTime.now().difference(lastScanTime!) < const Duration(seconds: 3)) {
-       return;
-     }
-
-     lastScannedCode = scannedUid;
-     lastScanTime = DateTime.now();
-
-     try {
-       logger.d('Starting handleBarcodeScanned with UID: $scannedUid');
-       final firestore = FirebaseFirestore.instance;
-
-       // Get student data
-       final studentDoc = await firestore.collection('users').doc(scannedUid).get();
-       if (!studentDoc.exists) {
-         throw Exception('Student not found');
-       }
-
-       final studentData = studentDoc.data()!;
-       final String studentName = '${studentData['fname']} ${studentData['lname']}';
-       final List<String> deviceTokens = List<String>.from(studentData['deviceToken'] ?? []);
-
-       // Check for existing attendance
-       final DateTime now = DateTime.now();
-       final String dateString = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-       final existingAttendance = await firestore
-           .collection('users')
-           .doc(scannedUid)
-           .collection('attendance')
-           .doc(dateString)
-           .get();
-
-       if (existingAttendance.exists) {
-         //_showMessage(context, 'تم تسجيل حضور $studentName مسبقاً اليوم', Colors.orange);
-          //snackbar message for already attendance
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم تسجيل الحضور مسبقاً اليوم'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-         return;
-       }
-
-       // Create attendance data
-       final attendanceData = {
-         'studentId': scannedUid,
-         'studentName': studentName,
-         'timestamp': now,
-         'date': dateString,
-         'year': now.year,
-         'month': now.month,
-         'day': now.day,
-         'hour': now.hour,
-         'minute': now.minute,
-       };
-
-       // Create notification data
-       final notificationData = {
-         'type': 'attendance',
-         'message': 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
-         'timestamp': now,
-         'read': false,
-       };
-
-       // Batch write operations
-       final batch = firestore.batch();
-
-       // 1. Record attendance in student's subcollection
-       batch.set(
-           firestore
-               .collection('users')
-               .doc(scannedUid)
-               .collection('attendance')
-               .doc(dateString),
-           attendanceData
-       );
-
-       // 2. Record in general attendance collection
-       batch.set(
-           firestore
-               .collection('attendance')
-               .doc('$dateString-$scannedUid'),
-           attendanceData
-       );
-
-       // 3. Add notification to student's subcollection
-       batch.set(
-           firestore
-               .collection('users')
-               .doc(scannedUid)
-               .collection('notifications')
-               .doc(),
-           notificationData
-       );
-
-       // 4. Update student's attendance summary
-       batch.update(
-           firestore.collection('users').doc(scannedUid),
-           {
-             'lastAttendance': now,
-             'attendanceDates': FieldValue.arrayUnion([dateString]),
-           }
-       );
-
-       await batch.commit();
-
-       // Send FCM notifications
-       if (deviceTokens.isNotEmpty) {
-
-           await FCMService.sendNotification(
-             //token: token,
-             title: 'تسجيل الحضور',
-             body: 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
-             data: {
-               'type': 'attendance',
-               'date': dateString,
-               'timestamp': now.millisecondsSinceEpoch.toString(),
-             }, deviceTokens: deviceTokens,
-           );
-       }
 
 
-       //_showMessage(context, 'تم تسجيل حضور $studentName بنجاح', Colors.green);
-       //snackbar message for success attendance
-       ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(
-           content: Text('تم تسجيل الحضور بنجاح'),
-           duration: Duration(seconds: 1),
-         ),
-       );
 
-       logger.d('Attendance recorded successfully');
+class QRScannerScreen extends StatefulWidget {
+  const QRScannerScreen({Key? key}) : super(key: key);
 
-     } catch (error) {
-       logger.e('Error recording attendance: $error');
-       // _showMessage(
-       //     context,
-       //     'حدث خطأ أثناء تسجيل الحضور: ${error.toString()}',
-       //     Colors.red
-       // );
-        //snackbar message for error attendance
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  final logger = Logger();
+  String? lastScannedCode;
+  DateTime? lastScanTime;
+  final FocusNode _focusNode = FocusNode();
+  final TextEditingController _barcodeController = TextEditingController();
+  final TextEditingController _testController = TextEditingController();
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _barcodeController.dispose();
+    _testController.dispose();
+    super.dispose();
+  }
+
+  Future<void> handleBarcodeScanned(String scannedUid, BuildContext context) async {
+    if (_isProcessing) return;
+
+    if (lastScannedCode == scannedUid &&
+        lastScanTime != null &&
+        DateTime.now().difference(lastScanTime!) < const Duration(seconds: 3)) {
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    try {
+      lastScannedCode = scannedUid;
+      lastScanTime = DateTime.now();
+
+      logger.d('Starting handleBarcodeScanned with UID: $scannedUid');
+      final firestore = FirebaseFirestore.instance;
+
+      final studentDoc = await firestore.collection('users').doc(scannedUid).get();
+      if (!studentDoc.exists) {
+        throw Exception('Student not found');
+      }
+
+      final studentData = studentDoc.data()!;
+      final String studentName = '${studentData['fname']} ${studentData['lname']}';
+      final List<String> deviceTokens = List<String>.from(studentData['deviceToken'] ?? []);
+
+      final DateTime now = DateTime.now();
+      final String dateString = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      final existingAttendance = await firestore
+          .collection('users')
+          .doc(scannedUid)
+          .collection('attendance')
+          .doc(dateString)
+          .get();
+
+      if (existingAttendance.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('حدث خطأ أثناء تسجيل الحضور'),
+            content: Text('تم تسجيل الحضور مسبقاً اليوم'),
             duration: Duration(seconds: 1),
           ),
         );
-     }
-   }  @override
+        return;
+      }
+
+      final attendanceData = {
+        'studentId': scannedUid,
+        'studentName': studentName,
+        'timestamp': now,
+        'date': dateString,
+        'year': now.year,
+        'month': now.month,
+        'day': now.day,
+        'hour': now.hour,
+        'minute': now.minute,
+      };
+
+      final notificationData = {
+        'type': 'attendance',
+        'message': 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
+        'timestamp': now,
+        'read': false,
+      };
+
+      final batch = firestore.batch();
+
+      batch.set(
+          firestore
+              .collection('users')
+              .doc(scannedUid)
+              .collection('attendance')
+              .doc(dateString),
+          attendanceData
+      );
+
+      batch.set(
+          firestore
+              .collection('attendance')
+              .doc('$dateString-$scannedUid'),
+          attendanceData
+      );
+
+      batch.set(
+          firestore
+              .collection('users')
+              .doc(scannedUid)
+              .collection('notifications')
+              .doc(),
+          notificationData
+      );
+
+      batch.update(
+          firestore.collection('users').doc(scannedUid),
+          {
+            'lastAttendance': now,
+            'attendanceDates': FieldValue.arrayUnion([dateString]),
+          }
+      );
+
+      await batch.commit();
+
+      if (deviceTokens.isNotEmpty) {
+        await FCMService.sendNotification(
+          title: 'تسجيل الحضور',
+          body: 'تم تسجيل حضورك في ${now.hour}:${now.minute}',
+          data: {
+            'type': 'attendance',
+            'date': dateString,
+            'timestamp': now.millisecondsSinceEpoch.toString(),
+          },
+          deviceTokens: deviceTokens,
+        );
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تسجيل الحضور بنجاح'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      logger.d('Attendance recorded successfully');
+
+    } catch (error) {
+      logger.e('Error recording attendance: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء تسجيل الحضور'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } finally {
+      setState(() => _isProcessing = false);
+      if (kIsWeb) {
+        _barcodeController.clear();
+        _testController.clear();
+        _focusNode.requestFocus();
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
     final double scannerSize = screenSize.width * .85;
@@ -356,43 +451,130 @@ class QRScannerScreen extends StatelessWidget {
             ),
           ),
           const Spacer(flex: 1),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                alignment: Alignment.center,
+          if (kIsWeb) ...[
+            // Hidden TextField for physical barcode scanner
+            Opacity(
+              opacity: 0,
+              child: TextField(
+                controller: _barcodeController,
+                focusNode: _focusNode,
+                autofocus: true,
+                onChanged: (value) {
+                  // Most barcode scanners add a return character
+                  if (value.contains('\n') || value.contains('\r')) {
+                    final cleanValue = value.replaceAll('\n', '').replaceAll('\r', '');
+                    if (cleanValue.isNotEmpty) {
+                      handleBarcodeScanned(cleanValue, context);
+                    }
+                  }
+                },
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+            // Visible test input field
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Row(
                 children: [
-                  SizedBox(
-                    height: scannerSize,
-                    width: scannerSize,
-                    child: MobileScanner(
-                      onDetect: (BarcodeCapture capture) async {
-                        if (capture.barcodes.isNotEmpty) {
-                          final String scannedValue = capture.barcodes[0].rawValue ?? '';
-                          if (scannedValue.isNotEmpty) {
-                            logger.d('Scanned barcode value: $scannedValue');
-                            await handleBarcodeScanned(scannedValue, context);
-                          }
+                  Expanded(
+                    child: TextField(
+                      controller: _testController,
+                      decoration: const InputDecoration(
+                        labelText: 'Test Scanner Input',
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty) {
+                          handleBarcodeScanned(value, context);
                         }
                       },
                     ),
                   ),
-                  Container(
-                    height: scannerSize,
-                    width: scannerSize,
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: const Color(0xFF2196F3),
-                        width: 2.0,
-                      ),
-                    ),
+                  SizedBox(width: 8.w),
+                  IconButton(
+                    icon: const Icon(Icons.send),
+                    onPressed: () {
+                      if (_testController.text.isNotEmpty) {
+                        handleBarcodeScanned(_testController.text, context);
+                      }
+                    },
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            // Visual indicator for web
+            Container(
+              width: 200.w,
+              height: 200.h,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: const Color(0xFF2196F3),
+                  width: 2.0,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.qr_code_scanner,
+                      size: 48.sp,
+                      color: const Color(0xFF2196F3),
+                    ),
+                    SizedBox(height: 16.h),
+                    Text(
+                      'جاهز للمسح بالقارئ',
+                      style: TextStyle(
+                        color: const Color(0xFF2196F3),
+                        fontSize: 16.sp,
+                        fontFamily: 'IBM Plex Sans Arabic',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            // Mobile scanner for Android/iOS
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: scannerSize,
+                      width: scannerSize,
+                      child: MobileScanner(
+                        onDetect: (BarcodeCapture capture) async {
+                          if (capture.barcodes.isNotEmpty) {
+                            final String scannedValue = capture.barcodes[0].rawValue ?? '';
+                            if (scannedValue.isNotEmpty) {
+                              logger.d('Scanned barcode value: $scannedValue');
+                              await handleBarcodeScanned(scannedValue, context);
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    Container(
+                      height: scannerSize,
+                      width: scannerSize,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: const Color(0xFF2196F3),
+                          width: 2.0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
           const Spacer(flex: 1),
-          // Instructions
           Text(
             'تعليمات',
             style: TextStyle(
@@ -403,40 +585,60 @@ class QRScannerScreen extends StatelessWidget {
             ),
           ),
           SizedBox(height: 10.h),
-          Text(
-            '- تأكد ان رمز QR يظهر بوضوح.',
-            style: TextStyle(
-              color: const Color(0xFFB9B9B9),
-              fontSize: 12.sp,
-              fontFamily: 'IBM Plex Sans Arabic',
-              fontWeight: FontWeight.w400,
+          if (kIsWeb) ...[
+            Text(
+              '- قم بتوصيل القارئ بالجهاز',
+              style: TextStyle(
+                color: const Color(0xFFB9B9B9),
+                fontSize: 12.sp,
+                fontFamily: 'IBM Plex Sans Arabic',
+                fontWeight: FontWeight.w400,
+              ),
             ),
-          ),
-          Text(
-            '- اقترب من رمز QR',
-            style: TextStyle(
-              color: const Color(0xFFB9B9B9),
-              fontSize: 12.sp,
-              fontFamily: 'IBM Plex Sans Arabic',
-              fontWeight: FontWeight.w400,
+            Text(
+              '- تأكد من تشغيل القارئ',
+              style: TextStyle(
+                color: const Color(0xFFB9B9B9),
+                fontSize: 12.sp,
+                fontFamily: 'IBM Plex Sans Arabic',
+                fontWeight: FontWeight.w400,
+              ),
             ),
-          ),
-          Text(
-            '- تأكد من ان المكان ليس معتم.',
-            style: TextStyle(
-              color: const Color(0xFFB9B9B9),
-              fontSize: 12.sp,
-              fontFamily: 'IBM Plex Sans Arabic',
-              fontWeight: FontWeight.w400,
+          ] else ...[
+            Text(
+              '- تأكد ان رمز QR يظهر بوضوح.',
+              style: TextStyle(
+                color: const Color(0xFFB9B9B9),
+                fontSize: 12.sp,
+                fontFamily: 'IBM Plex Sans Arabic',
+                fontWeight: FontWeight.w400,
+              ),
             ),
-          ),
+            Text(
+              '- اقترب من رمز QR',
+              style: TextStyle(
+                color: const Color(0xFFB9B9B9),
+                fontSize: 12.sp,
+                fontFamily: 'IBM Plex Sans Arabic',
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            Text(
+              '- تأكد من ان المكان ليس معتم.',
+              style: TextStyle(
+                color: const Color(0xFFB9B9B9),
+                fontSize: 12.sp,
+                fontFamily: 'IBM Plex Sans Arabic',
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
           const Spacer(flex: 2),
         ],
       ),
     );
   }
 }
-
 // No need for custom painter anymore since we're using a simple border
 
 class QRScannerOverlayPainter extends CustomPainter {
