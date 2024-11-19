@@ -6,7 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+//import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -203,93 +203,55 @@ static LoginCubit get(context) => BlocProvider.of(context);
  //      return false;
  //    }
  //  }
+
   void userLogin({
     required String phone,
     required String password,
   }) {
-    //rafik  //
     emit(LoginLoadingState());
     print('email\n\n\n');
-    print(phone+'@placeholder.com');
+    print('$phone@placeholder.com');
     print(password);
-    //if no internet connection emit error state and return
-    //check internet connection by calling to open url
-    //if no internet connection it will throw an error
-    //if there is internet connection it will open the url
-    //and we will catch the error and emit error state
-    //and return
-   // if (checkInternetConnectivity() == false) {
-   //   showToast(msg: 'لا يوجد اتصال بالانترنت', state: ToastStates.ERROR);
-   //   emit(LoginErrorState('لا يوجد اتصال بالانترنت'));
-   //   return;
-  //  }
-    FirebaseAuth.instance.signInWithEmailAndPassword(
+
+    FirebaseAuth.instance
+        .signInWithEmailAndPassword(
         email: '$phone@placeholder.com',
-        password: password
-    ).then((userCredential) async {
+        password: password)
+        .then((userCredential) async {
       var user = userCredential.user!;
-      FirebaseMessaging.instance.getToken().then((token) {
-        FirebaseFirestore.instance.collection('admins')
-            .doc(user.uid)
-            .update(
-          //string is the name of
-          //device token is string not array
-            {'token': token}
-        ).then((_) {
-          FirebaseFirestore.instance
-              .collection('admins')
-              .doc(user.uid)
-              .get()
-              .then((doc) {
-                emit(LoginSuccessState(user.uid));
-            // if (doc.exists) {
-            //   var data = doc.data();
-            //   if (data!['deviceToken'].length < 1000000) {
-            //
-            //     emit(LoginSuccessState(user.uid));
-            //   } else {
-            //     emit(LoginErrorState('User is already logged in on 3 devices.'));
-            //   }
-            // } else {
-            //   emit(LoginErrorState('User data not found.'));
-            // }
-          });
-        });
+
+      // Simply fetch admin data and emit success
+      FirebaseFirestore.instance
+          .collection('admins')
+          .doc(user.uid)
+          .get()
+          .then((doc) {
+        if (doc.exists) {
+          emit(LoginSuccessState(user.uid));
+        } else {
+          emit(LoginErrorState('User data not found.'));
+        }
+      }).catchError((error) {
+        emit(LoginErrorState('Error fetching user data: $error'));
       });
+
     }).catchError((error) {
       String? errorMessage;
       switch (error.code) {
-        //network error
         case "network-request-failed":
-         // if (kDebugMode) {
-            errorMessage = //'Please check your internet connection';
-            'الرجاء التحقق من اتصالك بالانترنت';
-        //  }
+          errorMessage = 'الرجاء التحقق من اتصالك بالانترنت';
           break;
         case "invalid-email":
-        //  if (kDebugMode) {
-            //translate to arabic
-            //errorMessage = 'The email address is badly formatted.';
-            errorMessage = 'البريد الإلكتروني غير صالح';
-       //   }
+          errorMessage = 'البريد الإلكتروني غير صالح';
           break;
         case "user-not-found":
-        //  if (kDebugMode) {
-           // errorMessage = 'No user found for that mobile number.';
-            errorMessage = 'لا يوجد مستخدم بهذا الرقم';
-        //  }
+          errorMessage = 'لا يوجد مستخدم بهذا الرقم';
           break;
         case "wrong-password":
-        //  if (kDebugMode) {
-          //  errorMessage = 'Wrong password provided for that user.';
-            errorMessage = 'كلمة المرور غير صحيحة';
-       //   }
+          errorMessage = 'كلمة المرور غير صحيحة';
           break;
         default:
-       //   if (kDebugMode) {
-          // errorMessage = 'The error is $error';
-            errorMessage = '$error حدث خطأ ما';
-     //     }
+          errorMessage = '$error حدث خطأ ما';
       }
       print('error firebase:\n\n\n\n\n\n\n');
       print(error.code);
@@ -298,6 +260,7 @@ static LoginCubit get(context) => BlocProvider.of(context);
       emit(LoginErrorState(errorMessage ?? ""));
     });
   }
+
 
 
   void signOut() {

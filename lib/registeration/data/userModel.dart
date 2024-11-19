@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel
 {
+  Timestamp? lastPaymentDate;
+  Timestamp? lastModifiedDate;
+  Timestamp? lastAttendance;
+  String? lastPaymentNote;
   String? name;
   String? email;
   int? level;
@@ -11,6 +15,7 @@ class UserModel
   int? currentMonthSalary;
   String? uId;
   String? phone;
+  String? parentPhone;
   String? fname;
   String? lname;
   String? image;
@@ -42,11 +47,16 @@ class UserModel
     this.currentMonthSalary,
     this.uId,
     this.phone,
+    this.parentPhone,
     this.fname,
     this.lname,
     this.image,
     this.token,
     this.branches,
+    this.lastPaymentDate,
+    this.lastAttendance,
+    this.lastModifiedDate,
+    this.lastPaymentNote,
     this.pid, this.numberOfSessions,
     this.attendanceDates, // Add this line
     this.date, this.password, required List<String> teachers,
@@ -59,11 +69,16 @@ class UserModel
     level = json['level'];
     hourlyRate = json['hourlyRate'];
     totalHours = json['totalHours'];
+    lastPaymentDate = json['lastPaymentDate'];
+    lastModifiedDate = json['lastModifiedDate'];
+    lastPaymentNote = json['lastPaymentNote'];
+    lastPaymentNote = json['lastAttendance'];
     totalSalary = json['totalSalary'];
     currentMonthHours = json['currentMonthHours'];
     currentMonthSalary = json['currentMonthSalary'];
     uId = json['uId'];
     phone = json['phone'];
+    phone = json['parentPhone'];
     fname = json['fname'];
     lname = json['lname'];
     image = json['image'];
@@ -83,6 +98,7 @@ class UserModel
     data['role'] = this.role;
     data['name'] = this.name;
     data['email'] = this.email;
+
     data['level'] = this.level;
     data['hourlyRate'] = this.hourlyRate;
     data['totalHours'] = this.totalHours;
@@ -91,6 +107,7 @@ class UserModel
     data['currentMonthSalary'] = this.currentMonthSalary;
     data['uId'] = this.uId;
     data['phone'] = this.phone;
+    data['parentPhone'] = this.parentPhone;
     data['fname'] = this.fname;
     data['lname'] = this.lname;
     data['image'] = this.image;
@@ -113,6 +130,10 @@ class UserModel
       'role': role,
       'name': name,
       'email': email,
+      'lastPaymentDate': lastPaymentDate,
+      'lastModifiedDate': lastModifiedDate,
+      'lastAttendance': lastAttendance,
+      'lastPaymentNote': lastPaymentNote,
       'level': level,
       'hourlyRate': hourlyRate,
       'totalHours': totalHours,
@@ -121,6 +142,7 @@ class UserModel
       'currentMonthSalary': currentMonthSalary,
       'uId': uId,
       'phone': phone,
+      'parentPhone': parentPhone,
       'fname': fname,
       'lname': lname,
       'image': image,

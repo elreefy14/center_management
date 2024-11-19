@@ -11,6 +11,9 @@ class GetCoachesSuccessState extends SignUpState {
 class GetCoachesErrorState extends SignUpState {
   final String? error;
   GetCoachesErrorState({this.error});
+}class ImportErrorState extends SignUpState {
+  final String? e;
+  ImportErrorState({this.e});
 }
 //emit(UpdateSelectedTeachersState(selectedTeachers: selectedTeachers));
 class UpdateSelectedTeachersState extends SignUpState {
@@ -28,6 +31,8 @@ class SignUpLoadingState extends SignUpState {}
 class SignUpSuccessState extends SignUpState {
   final String uId;
   SignUpSuccessState(this.uId);
+}class ImportSuccessState extends SignUpState {
+  ImportSuccessState();
 }
 //SignUpErrorState
 class SignUpErrorState extends SignUpState {

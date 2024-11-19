@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:admin_future/attendence/presentation/attendence_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,10 +10,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:logger/logger.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../../attendence/attendence_cubit.dart';
 import '../../../core/excel_exports_service.dart';
 import '../../../core/fcm_helper.dart';
-import '../../../manage_users_coaches/presenation/add_student_screen.dart';
 import '../../../manage_users_coaches/presenation/mange_students_screen.dart';
 
 // Main Layout
@@ -19,8 +19,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:html' as html;
 import 'package:excel/excel.dart' as excel;
-import 'dart:html' as html;
-import 'package:excel/excel.dart' as excel;
+
+import '../../../registeration/data/userModel.dart';
 
 
 
@@ -37,71 +37,96 @@ class _HomeLayoutState extends State<HomeLayout> {
 
 
 
-  Future<void> exportUsersDataWeb() async {
+
+
+
+  Future<void> exportUsersAndAttendanceDataAsCSV() async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final usersSnapshot = await firestore.collection('users').get();
 
-      var excelFile = excel.Excel.createExcel();
-      excel.Sheet sheetObject = excelFile['Users'];
+      // --- Step 1: Export Users CSV ---
+      // Query users and order by lastModifiedDate
+      final usersSnapshot = await firestore
+          .collection('users')
+          .orderBy('lastModifiedDate', descending: true) // Order by lastModifiedDate
+          .get();
 
-      // Add headers using cell values
-      final headers = [
-        excel.TextCellValue('Name'),
-        excel.TextCellValue('Email'),
-        excel.TextCellValue('Phone'),
-        excel.TextCellValue('Last Attendance'),
-        excel.TextCellValue('Total Attendance Days')
-      ];
-      sheetObject.appendRow(headers);
+      // Add padding for column headers
+      String usersCsv = 'First Name       ,Last Name       ,ID                ,Phone Number     ,Parent Phone Number,Attendance Dates    ,Notes                \n';
 
-      // Add data rows
+      DateTime now = DateTime.now();
+
       for (var doc in usersSnapshot.docs) {
         var data = doc.data();
-        final rowData = [
-          excel.TextCellValue('${data['fname']} ${data['lname']}'),
-          excel.TextCellValue(data['email']?.toString() ?? ''),
-          excel.TextCellValue(data['phone']?.toString() ?? ''),
-          excel.TextCellValue(data['lastAttendance']?.toDate()?.toString() ?? ''),
-          excel.TextCellValue((data['attendanceDates'] as List?)?.length?.toString() ?? '0')
-        ];
-        sheetObject.appendRow(rowData);
+
+        // Extract and pad user details
+        String fname = (data['fname'] ?? '').padRight(15); // First Name
+        String lname = (data['lname'] ?? '').padRight(15); // Last Name
+        String id = doc.id.padRight(20); // User ID
+        String phone = (data['phone'] ?? '').padRight(15); // Phone Number
+        String parentPhone = (data['parentPhone'] ?? '').padRight(20); // Parent's Phone Number
+        String notes = ''; // Notes
+
+        // Check subscription payment status and create a note
+        if (data['lastPaymentDate'] != null) {
+          DateTime lastPaymentDate = (data['lastPaymentDate'] as Timestamp).toDate();
+          if (now.month > lastPaymentDate.month || now.year > lastPaymentDate.year) {
+            notes = 'User needs to pay subscription. Last payment was on ${lastPaymentDate.year}-${lastPaymentDate.month}.';
+          }
+        }
+        notes = notes.padRight(20);
+
+        // Add user details to CSV
+        usersCsv += '"$fname","$lname","$id","$phone","$parentPhone","","$notes"\n';
+
+        // Add attendance dates
+        List<String> attendanceDates = List<String>.from(data['attendanceDates'] ?? []);
+        for (String dateStr in attendanceDates) {
+          usersCsv += '"","","","","","${dateStr.padRight(20)}",""\n';
+        }
       }
 
-      // Style the header row
-      final headerStyle = excel.CellStyle(
-          bold: true,
-         // backgroundColorHex:
-        //  fontColorHex: '#FFFFFF',
-          horizontalAlign: excel.HorizontalAlign.Center
-      );
+      // Save the users CSV file
+      final usersBytes = utf8.encode(usersCsv);
+      final usersBlob = html.Blob([usersBytes], 'text/csv;charset=utf-8');
+      final usersUrl = html.Url.createObjectUrlFromBlob(usersBlob);
+      final usersAnchor = html.AnchorElement(href: usersUrl)
+        ..setAttribute('download', 'Student_Data_Report.csv')
+        ..style.display = 'none'
+        ..click();
+      html.Url.revokeObjectUrl(usersUrl);
 
-      // Apply header styles
-      for (var i = 0; i < headers.length; i++) {
-        var cell = sheetObject.cell(excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
-        cell.cellStyle = headerStyle;
+      // --- Step 2: Export Attendance CSV ---
+      // Query attendance records (modify if you want them ordered as well)
+      final attendanceSnapshot = await firestore.collection('attendance').get();
+
+      String attendanceCsv = 'Student ID       ,Student Name     ,Date              ,Year ,Month,Day  ,Hour ,Minute\n';
+
+      for (var doc in attendanceSnapshot.docs) {
+        var data = doc.data();
+        var record = AttendanceRecord.fromJson(data);
+
+        // Add a row for each attendance record
+        attendanceCsv += '"${record.studentId.padRight(15)}","${record.studentName.padRight(15)}","${record.date.padRight(15)}",'
+            '"${record.year.toString().padRight(5)}","${record.month.toString().padRight(5)}","${record.day.toString().padRight(5)}",'
+            '"${record.hour.toString().padRight(5)}","${record.minute.toString().padRight(5)}"\n';
       }
 
-      // Auto-fit columns
-      for (var i = 0; i < headers.length; i++) {
-        sheetObject.setColumnWidth(i, 20);
-      }
-
-      // Convert to bytes and download
-      final bytes = excelFile.save();
-      if (bytes != null) {
-        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', 'users_data.xlsx')
-          ..click();
-        html.Url.revokeObjectUrl(url);
-      }
+      // Save the attendance CSV file
+      final attendanceBytes = utf8.encode(attendanceCsv);
+      final attendanceBlob = html.Blob([attendanceBytes], 'text/csv;charset=utf-8');
+      final attendanceUrl = html.Url.createObjectUrlFromBlob(attendanceBlob);
+      final attendanceAnchor = html.AnchorElement(href: attendanceUrl)
+        ..setAttribute('download', 'Attendance_Records.csv')
+        ..style.display = 'none'
+        ..click();
+      html.Url.revokeObjectUrl(attendanceUrl);
     } catch (e) {
       print('Export error: $e');
       rethrow;
     }
   }
+
 
   final List<Widget> screens = [
     const ManageStudentsScreen(),
@@ -155,17 +180,25 @@ class _HomeLayoutState extends State<HomeLayout> {
               onPressed: isExporting
                   ? null
                   : () async {
-                //show toast that can take some time
-                const snackBar = SnackBar(
-                  content: Text('جاري تصدير البعيانات...'),
-                  duration: Duration(seconds: 1),
-                );
                 setState(() => isExporting = true);
-                await excelExportService.exportUsersData();
-                setState(() => isExporting = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم تصدير البيانات بنجاح')),
-                );
+                try {
+                  await exportUsersAndAttendanceDataAsCSV();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم تصدير البيانات بنجاح'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('حدث خطأ أثناء تصدير البيانات'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                } finally {
+                  setState(() => isExporting = false);
+                }
               },
             ),
         ],
@@ -326,6 +359,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           .get();
 
       if (existingAttendance.exists) {
+        firestore.collection('users').doc(scannedUid).update(
+    {
+   // 'lastAttendance': now,
+    'lastModifiedDate':  Timestamp.now(),
+   // 'attendanceDates': FieldValue.arrayUnion([dateString]),
+    }
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم تسجيل الحضور مسبقاً اليوم'),
@@ -356,6 +396,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
       final batch = firestore.batch();
 
+      // Set attendance in user's collection
       batch.set(
           firestore
               .collection('users')
@@ -365,6 +406,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           attendanceData
       );
 
+      // Set attendance in main attendance collection
       batch.set(
           firestore
               .collection('attendance')
@@ -372,6 +414,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           attendanceData
       );
 
+      // Add notification
       batch.set(
           firestore
               .collection('users')
@@ -381,10 +424,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           notificationData
       );
 
+      // Update user document with attendance info and lastModifiedDate
       batch.update(
           firestore.collection('users').doc(scannedUid),
           {
             'lastAttendance': now,
+            'lastModifiedDate':  Timestamp.now(),
             'attendanceDates': FieldValue.arrayUnion([dateString]),
           }
       );
@@ -411,7 +456,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         ),
       );
 
-      logger.d('Attendance recorded successfully');
+      logger.d('Attendance and lastModifiedDate updated successfully');
 
     } catch (error) {
       logger.e('Error recording attendance: $error');

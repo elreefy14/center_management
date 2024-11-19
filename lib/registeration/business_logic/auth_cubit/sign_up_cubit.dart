@@ -4,12 +4,15 @@ import 'package:barcode_image/barcode_image.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:contacts_service/contacts_service.dart';
+import 'package:excel/excel.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -93,6 +96,7 @@ class SignUpCubit extends Cubit<SignUpState> {
   final hourlyRateController = TextEditingController();
   final lastNameController = TextEditingController();
   final phoneController = TextEditingController();
+  final parentPhoneController = TextEditingController();
   final passwordController = TextEditingController();
   List<String>? checkboxGroupValues;
   FormFieldController<List<String>>? checkboxGroupValueController;
@@ -197,23 +201,90 @@ class SignUpCubit extends Cubit<SignUpState> {
     });
   }
 
+  Future<void> importStudentsFromExcel() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
 
+      if (result != null) {
+        File file = File(result.files.single.path!);
+        var bytes = file.readAsBytesSync();
+        var excel = Excel.decodeBytes(bytes);
+
+        for (var table in excel.tables.keys) {
+          var rows = excel.tables[table]!.rows;
+          // Skip header row
+          for (int i = 1; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.length >= 5) { // Make sure row has all required fields
+              String studentCodeFromExcel = row[0]?.value?.toString() ?? '';
+              String studentName = row[1]?.value?.toString() ?? '';
+              String parentPhone = row[2]?.value?.toString() ?? '';
+              String studentPhone = row[3]?.value?.toString() ?? '';
+              String paymentNote = row[4]?.value?.toString() ?? '';
+
+              // Split name into first and last name
+              List<String> nameParts = studentName.split(' ');
+              String firstName = nameParts.first;
+              String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+              await addUser(
+                role: 'user',
+                fName: firstName,
+                lName: lastName,
+                phone: studentPhone,
+                password: '123456', // Default password
+                hourlyRate: '30', // Default rate
+                teachers: [],
+                lastPaymentNote: paymentNote,
+                parentPhone: parentPhone,
+                studentCode: studentCodeFromExcel,
+              );
+            }
+          }
+        }
+        emit(ImportSuccessState());
+      }
+    } catch (e) {
+      emit(ImportErrorState(e: e.toString()));
+    }
+  }
   Future<String?> addUser({
     required String lName,
     required String fName,
     required String phone,
     required String password,
-    required String role,
+    String role ='user',
     String? hourlyRate,
     required List<String> teachers,
+    required String lastPaymentNote,
+    required String parentPhone,
+    String? studentCode,
   }) async {
+    final logger = Logger(
+      printer: PrettyPrinter(
+        methodCount: 0,
+        errorMethodCount: 8,
+        lineLength: 120,
+        colors: true,
+        printEmojis: true,
+      ),
+    );
+
+    logger.i('Starting addUser process for: $fName $lName');
+    logger.d('Initial parameters - Phone: $phone, Role: $role, StudentCode: $studentCode');
+
     emit(SignUpLoadingState());
     try {
       if (password.isEmpty) {
         password = '123456';
+        logger.d('Empty password provided, using default: 123456');
       }
 
       // Phone number processing
+      logger.d('Original phone number: $phone');
       if (phone.startsWith('٠١')) {
         phone = phone.replaceAll('٠', '0')
             .replaceAll('١', '1')
@@ -225,40 +296,80 @@ class SignUpCubit extends Cubit<SignUpState> {
             .replaceAll('٧', '7')
             .replaceAll('٨', '8')
             .replaceAll('٩', '9');
+        logger.d('Converted Arabic numerals in phone number: $phone');
       }
       phone = phone.replaceAll(' ', '');
       if (phone.startsWith('+2')) {
         phone = phone.substring(2);
+        logger.d('Removed country code from phone: $phone');
       }
 
       bool isConnect = await checkInternetConnectivity();
-      if (!isConnect) {
-        if (role == 'coach') {
-          emit(SignUpErrorState(error: 'لا يمكنك التسجيل كمدرب بدون انترنت'));
-          showToast(msg: 'لا يمكنك التسجيل كمدرب بدون انترنت', state: ToastStates.ERROR);
-          return null;
-        }
-        String uId = const Uuid().v4();
-        showToast(msg: 'تم التسجيل بنجاح', state: ToastStates.SUCCESS);
-        _clearControllers();
-        emit(SignUpSuccessState(uId));
-        return uId;
-      }
+      logger.d('Internet connection status: $isConnect');
 
+      // if (!isConnect) {
+      //   if (role == 'coach') {
+      //     logger.w('Attempted to register coach without internet connection');
+      //     emit(SignUpErrorState(error: 'لا يمكنك التسجيل كمدرب بدون انترنت'));
+      //     showToast(msg: 'لا يمكنك التسجيل كمدرب بدون انترنت', state: ToastStates.ERROR);
+      //     return null;
+      //   }
+      //   String uId = (studentCode != null && studentCode.isNotEmpty) ? studentCode : const Uuid().v4();
+      //   logger.i('Created offline user with ID: $uId');
+      //   showToast(msg: 'تم التسجيل بنجاح', state: ToastStates.SUCCESS);
+      //   _clearControllers();
+      //   emit(SignUpSuccessState(uId));
+      //   return uId;
+      // }
+
+      logger.d('Getting admin credentials');
       String? adminEmail = FirebaseAuth.instance.currentUser!.email;
       String adminUid = FirebaseAuth.instance.currentUser!.uid;
+      logger.d('Admin UID: $adminUid');
+
+      logger.d('Signing out current user');
       await FirebaseAuth.instance.signOut();
 
-      // Create new user
+      // Check existing student code
+      if (studentCode != null && studentCode.isNotEmpty) {
+        logger.d('Checking if student code exists: $studentCode');
+        final existingDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(studentCode)
+            .get();
+
+        if (existingDoc.exists) {
+          logger.w('Student code already exists: $studentCode');
+          throw FirebaseAuthException(
+              code: 'student-code-exists',
+              message: 'A user with this student code already exists'
+          );
+        }
+      }
+
+      logger.d('Creating new user authentication');
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: '$phone@placeholder.com',
           password: password
       );
+      logger.i('Created auth user with ID: ${userCredential.user!.uid}');
 
-      final newUid = userCredential.user!.uid;
+      final String newUid = (studentCode != null && studentCode.isNotEmpty) ?
+      studentCode : userCredential.user!.uid;
+      logger.d('Using ID for Firestore document: $newUid');
 
+      if (studentCode != null && studentCode.isNotEmpty) {
+        logger.d('Student code provided, recreating user with custom ID');
+        await userCredential.user?.delete();
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: '$phone@placeholder.com',
+            password: password
+        );
+      }
+
+      logger.d('Creating UserModel');
       UserModel model = UserModel(
-        role: 'coach',
+        role: 'user',
         hourlyRate: int.parse(hourlyRate ?? '30'),
         totalHours: 0,
         totalSalary: 0,
@@ -270,43 +381,52 @@ class SignUpCubit extends Cubit<SignUpState> {
         fname: fName,
         token: '',
         phone: phone,
+        parentPhone: parentPhone,
         pid: adminUid,
         numberOfSessions: 0,
         date: Timestamp.now(),
+        lastPaymentDate: Timestamp.now(),
+        lastModifiedDate: Timestamp.now(),
+        lastPaymentNote: lastPaymentNote,
         branches: [],
         password: password,
         teachers: teachers,
       );
 
+      logger.d('Saving user to Firestore');
       await FirebaseFirestore.instance
           .collection('users')
           .doc(newUid)
           .set(model.toMap());
 
-      // Re-authenticate admin
+      logger.d('Getting admin document for re-authentication');
       final adminDoc = await FirebaseFirestore.instance
           .collection('admins')
           .doc(adminUid)
           .get();
 
       final adminPhone = adminDoc.data()?['phone'];
+      logger.d('Re-authenticating admin');
       final adminPassword = adminDoc.data()?['password'];
 
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: '$adminPhone@placeholder.com',
         password: adminPassword!,
       );
+      logger.i('Admin re-authenticated successfully');
 
       _clearControllers();
       showToast(msg: 'تم التسجيل بنجاح', state: ToastStates.SUCCESS);
       emit(SignUpSuccessState(newUid));
+      logger.i('User registration completed successfully. UID: $newUid');
       return newUid;
 
     } catch (error) {
       String? errorMessage;
-      print('Error in addUser: $error');
+      logger.e('Error in addUser: $error');
 
       if (error is FirebaseAuthException) {
+        logger.e('FirebaseAuthException code: ${error.code}');
         switch (error.code) {
           case "email-already-in-use":
             errorMessage = 'The account already exists for that email.';
@@ -320,6 +440,9 @@ class SignUpCubit extends Cubit<SignUpState> {
           case "wrong-password":
             errorMessage = 'Wrong password provided for that user.';
             break;
+          case "student-code-exists":
+            errorMessage = 'A user with this student code already exists.';
+            break;
           default:
             errorMessage = 'The error is $error';
         }
@@ -327,6 +450,7 @@ class SignUpCubit extends Cubit<SignUpState> {
         errorMessage = 'An unexpected error occurred';
       }
 
+      logger.e('Error message: $errorMessage');
       emit(SignUpErrorState(error: errorMessage));
       showToast(msg: errorMessage, state: ToastStates.ERROR);
       return null;

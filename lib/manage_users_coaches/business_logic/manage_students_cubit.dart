@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:logger/logger.dart';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,7 +26,7 @@ class NotificationError extends ManageStudentsState {
   class ManageStudentsCubit extends Cubit<ManageStudentsState> {
     ManageStudentsCubit()
         : super(ManageStudentsInitial()); // Set an initial state
-
+    final logger = Logger();
     List<UserModel> users = []; // Store the list of users
     DocumentSnapshot? lastDocument; // Store the last fetched document for pagination
     bool isLoadingMore = false; // To manage loading state for pagination
@@ -87,6 +88,12 @@ class NotificationError extends ManageStudentsState {
             .doc(markId);
         batch.set(markRef, markData);
 
+        // Update lastModifiedDate in user document
+        final userRef = FirebaseFirestore.instance.collection('users').doc(studentId);
+        batch.update(userRef, {
+          'lastModifiedDate': Timestamp.fromDate(timestamp),
+        });
+
         // Add notification
         final notificationRef = FirebaseFirestore.instance
             .collection('users')
@@ -117,7 +124,6 @@ class NotificationError extends ManageStudentsState {
             );
           } catch (fcmError) {
             print('Failed to send FCM notification: $fcmError');
-            // Continue execution even if FCM fails
           }
         }
 
@@ -178,6 +184,13 @@ class NotificationError extends ManageStudentsState {
             .doc(subscriptionId);
         batch.set(subscriptionRef, subscriptionData);
 
+        // Update lastModifiedDate and lastPaymentDate in user document
+        final userRef = FirebaseFirestore.instance.collection('users').doc(studentId);
+        batch.update(userRef, {
+          'lastModifiedDate': Timestamp.fromDate(timestamp),
+          'lastPaymentDate': Timestamp.fromDate(timestamp),
+        });
+
         // Add notification
         final notificationRef = FirebaseFirestore.instance
             .collection('users')
@@ -208,7 +221,6 @@ class NotificationError extends ManageStudentsState {
             );
           } catch (fcmError) {
             print('Failed to send FCM notification: $fcmError');
-            // Continue execution even if FCM fails
           }
         }
 
@@ -612,68 +624,100 @@ class NotificationError extends ManageStudentsState {
 
 
     // Fetch initial users with role 'user'
+
     Future<void> fetchUsers() async {
       emit(UsersLoading());
       try {
+        logger.d('Starting initial users fetch');
+
         final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
             .collection('users')
-            //.where('role', isEqualTo: 'user')
-            .orderBy('name') // Add consistent ordering
+            .where('role', isEqualTo: 'user')
+            .orderBy('lastModifiedDate', descending: true)
             .limit(12)
-        //server then
             .get(GetOptions(source: Source.serverAndCache));
 
+        logger.d('Fetched ${querySnapshot.docs.length} users');
+
         if (querySnapshot.docs.isEmpty) {
+          logger.i('No users found in initial fetch');
           emit(UsersLoaded([]));
           return;
         }
 
         users = querySnapshot.docs.map((doc) {
-          return UserModel.fromJson(doc.data() as Map<String, dynamic>);
-        }).toList();
+          try {
+            return UserModel.fromJson(doc.data() as Map<String, dynamic>);
+          } catch (e) {
+            logger.e('Error parsing user document: ${doc.id}', error: e);
+            return null;
+          }
+        })
+            .where((user) => user != null)
+            .cast<UserModel>()
+            .toList();
 
         lastDocument = querySnapshot.docs.last;
         hasMoreData = querySnapshot.docs.length == 12;
 
+        logger.i('Successfully loaded ${users.length} users');
         emit(UsersLoaded(users));
       } catch (error) {
+        logger.e('Error fetching users: $error');
         emit(UsersError(error.toString()));
       }
     }
 
-    // Fetch more users for pagination
     Future<void> fetchMoreUsers() async {
-      if (!hasMoreData || isLoadingMore || lastDocument == null) return;
+      if (!hasMoreData || isLoadingMore || lastDocument == null) {
+        logger.d('Skipping fetchMoreUsers: hasMoreData=$hasMoreData, isLoadingMore=$isLoadingMore, lastDocument=${lastDocument != null}');
+        return;
+      }
 
       isLoadingMore = true;
-      emit(UsersLoadingMore(users)); // New state to show loading indicator
+      emit(UsersLoadingMore(users));
 
       try {
+        logger.d('Fetching more users starting after ${lastDocument?.id}');
+
         final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
             .collection('users')
             .where('role', isEqualTo: 'user')
-            .orderBy('name') // Add consistent ordering
+            .orderBy('lastModifiedDate', descending: true)
             .startAfterDocument(lastDocument!)
             .limit(12)
             .get();
 
+        logger.d('Fetched ${querySnapshot.docs.length} additional users');
+
         if (querySnapshot.docs.isEmpty) {
           hasMoreData = false;
           isLoadingMore = false;
+          logger.i('No more users to load');
           emit(UsersLoaded(users));
           return;
         }
 
         final newUsers = querySnapshot.docs.map((doc) {
-          return UserModel.fromJson(doc.data() as Map<String, dynamic>);
-        }).toList();
+          try {
+            return UserModel.fromJson(doc.data() as Map<String, dynamic>);
+          } catch (e) {
+            logger.e('Error parsing user document: ${doc.id}', error: e);
+            return null;
+          }
+        })
+            .where((user) => user != null)
+            .cast<UserModel>()
+            .toList();
 
         users.addAll(newUsers);
         lastDocument = querySnapshot.docs.last;
         hasMoreData = querySnapshot.docs.length == 12;
 
+        logger.i('Successfully loaded ${newUsers.length} additional users. Total: ${users.length}');
         emit(UsersLoaded(users));
       } catch (error) {
+        logger.e('Error fetching more users: $error');
         emit(UsersError(error.toString()));
       } finally {
         isLoadingMore = false;

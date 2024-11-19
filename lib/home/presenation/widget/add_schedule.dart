@@ -10,7 +10,7 @@ import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-import 'package:multiselect/multiselect.dart';
+//import 'package:multiselect/multiselect.dart';
 import '../../../registeration/data/userModel.dart';
 
 import 'widget/multi_select.dart';

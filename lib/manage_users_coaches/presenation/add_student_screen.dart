@@ -71,10 +71,10 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
           children: [
             BarcodeWidget(
               barcode: Barcode.code128(),
-              data: uId,  // Using only the UID
+              data: uId,
               width: 300,
               height: 100,
-              drawText: true,  // Show the UID text below barcode
+              drawText: true,
             ),
             const SizedBox(height: 10),
             Text(
@@ -96,7 +96,6 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
       ),
     );
 
-    // Create overlay to render the widget
     final overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         left: -1000,
@@ -108,7 +107,6 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     Overlay.of(context).insert(overlayEntry);
     await Future.delayed(const Duration(milliseconds: 100));
 
-    // Capture the image
     final RenderRepaintBoundary boundary =
     globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
@@ -120,14 +118,12 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
       throw Exception('Failed to generate barcode image');
     }
 
-    // Save to temporary file
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/barcode.png');
     await file.writeAsBytes(byteData.buffer.asUint8List());
 
     return file;
   }
-
   Future<void> sendWhatsAppMessageWithBarcode({
     required String phone,
     required String uId,
@@ -164,24 +160,18 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
       String? newUid;
 String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}';
 
-      if (widget.isCoach) {
-        newUid = await SignUpCubit.get(context).addUser(
-          role: 'user',
-          fName: SignUpCubit.get(context).firstNameController.text,
-          lName: SignUpCubit.get(context).lastNameController.text,
-          phone: SignUpCubit.get(context).phoneController.text.trim(),
-          password: SignUpCubit.get(context).passwordController.text,
-          hourlyRate: '30',
-          teachers: [],
-        );
-      } else {
-        // newUid = await SignUpCubit.get(context).addTrainee(
-        //   fname: SignUpCubit.get(context).firstNameController.text,
-        //   lname: SignUpCubit.get(context).lastNameController.text,
-        //   phone: SignUpCubit.get(context).phoneController.text.trim(),
-        //   password: SignUpCubit.get(context).passwordController.text,
-        // );
-      }
+      newUid = await SignUpCubit.get(context).addUser(
+        role: 'user',
+        fName: SignUpCubit.get(context).firstNameController.text,
+        lName: SignUpCubit.get(context).lastNameController.text,
+        phone: SignUpCubit.get(context).phoneController.text.trim(),
+        password: SignUpCubit.get(context).passwordController.text,
+        hourlyRate: '30',
+        teachers: [],
+        lastPaymentNote: '', // Added empty string as default
+        parentPhone: SignUpCubit.get(context).parentPhoneController.text.trim(), // Using parent phone controller
+        studentCode: null, // Added null as default
+      );
 
       if (newUid != null && context.read<SignUpCubit>().shouldSendWhatsApp) {
         await sendWhatsAppMessageWithBarcode(
@@ -394,6 +384,22 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
                   Icons.phone,
                 ),
               ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                child: BuildTextFormField2(
+                  'رقم هاتف ولي الامى ',
+                  SignUpCubit.get(context).parentPhoneController,
+                  TextInputType.phone,
+                  'ادخل رقم الهاتف',
+                      (value) {
+                    if (value!.isEmpty) {
+                      return 'الرجاء ادخال رقم الهاتف';
+                    }
+                    return null;
+                  },
+                  Icons.phone,
+                ),
+              ),
               SizedBox(height: 20.0.h),
               if (widget.isCoach)
           Padding(
@@ -413,93 +419,6 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
     },
     Icons.lock,
     context: context,
-    ),
-    ),
-    if (widget.isCoach)
-    Padding(
-    padding: EdgeInsets.symmetric(
-    horizontal: 35.0.w, vertical: 10.0.h),
-    child: GestureDetector(
-    onTap: () {
-    showDialog(
-    context: context,
-    builder: (BuildContext context) {
-    return AlertDialog(
-    title: const Text('اختر مدرب'),
-    content: TeacherSelectionDialog(
-    onSelected: (List<String> selected) {
-    setState(() {
-    selectedTeachers = selected;
-    });
-    },
-    initialSelected: selectedTeachers,
-    ),
-    actions: <Widget>[
-    TextButton(
-    child: const Text('Cancel'),
-    onPressed: () {
-    Navigator.of(context).pop();
-    },
-    ),
-    TextButton(
-    child: const Text('Save'),
-    onPressed: () {
-    Navigator.of(context).pop();
-    },
-    ),
-    ],
-    );
-    },
-    );
-    },
-    child: Row(
-    mainAxisAlignment: MainAxisAlignment.start,
-    children: [
-    Container(
-    width: 280.w,
-    height: 48.h,
-    padding: EdgeInsets.symmetric(
-    horizontal: 16.w, vertical: 12.h),
-    clipBehavior: Clip.antiAlias,
-    decoration: ShapeDecoration(
-    color: const Color(0xFFF6F6F6),
-    shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(4)),
-    ),
-    child: Row(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.end,
-    children: [
-    Expanded(
-    child: SizedBox(
-    child: Text(
-    widget.isCoach
-    ? 'اختر المدرسين'
-        : 'اختر الطلاب',
-    textAlign: TextAlign.right,
-    style: TextStyle(
-    color: const Color(0xFF666666),
-    fontSize: 16.sp,
-    fontFamily: 'IBM Plex Sans Arabic',
-    fontWeight: FontWeight.w400,
-    height: 0,
-    ),
-    ),
-    ),
-    ),
-    const Spacer(),
-    SizedBox(
-    width: 20.w,
-    height: 11.30.h,
-    child: const Icon(
-    Icons.arrow_drop_down,
-    ),
-    ),
-    ],
-    ),
-    ),
-    ],
-    ),
     ),
     ),
     if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),

@@ -1,8 +1,16 @@
-// Add these imports
 import 'dart:async';
+import 'dart:io';
+import 'package:admin_future/registeration/business_logic/auth_cubit/sign_up_cubit.dart';
 import 'package:admin_future/registeration/data/userModel.dart';
 import 'package:admin_future/registeration/presenation/widget/widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart';
+import 'package:excel/excel.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +29,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
   final TextEditingController _searchController = TextEditingController();
   late ManageStudentsCubit _cubit;
   late ScrollController _scrollController;
+  Timer? _debounceTimer;
+  String _previousSearch = '';
   Timer? _rollbackTimer;
   String? _lastActionId;
   String? _lastActionType;
@@ -31,17 +41,44 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     super.initState();
     _cubit = ManageStudentsCubit()..fetchUsers();
     _scrollController = ScrollController()..addListener(_onScroll);
+    _searchController.addListener(_onSearchChanged);
     _cubit.fetchTeachers();
     _cubit.loadCoachesFromPrefs();
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
-    _rollbackTimer?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
   }
+
+  void _onSearchChanged() {
+    final currentText = _searchController.text.trim();
+
+    // Cancel any existing debounce timer
+    _debounceTimer?.cancel();
+
+    // If search is empty, reset the original list
+    if (currentText.isEmpty) {
+      _cubit.fetchUsers();
+      _previousSearch = currentText;
+      return;
+    }
+
+    // Debounce search after each character starting from 2 letters
+    if (currentText.length >=3) {
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        _cubit.onSearchSubmitted(currentText, true);
+      });
+    }
+
+    _previousSearch = currentText;
+  }
+
+
 
   void _onScroll() {
     if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
@@ -360,28 +397,6 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
      //   appBar: AppBar(title: const Text('إدارة الطلاب')),
         floatingActionButton: _showRollbackButton
             ?
-        //Container(
-        //                       width: 50.w,
-        //                       height: 50.h,
-        //                       decoration: BoxDecoration(
-        //                         color: Colors.red,
-        //                         borderRadius: BorderRadius.circular(50),
-        //                       ),
-        //                       child: const Align(
-        //                         alignment: AlignmentDirectional(0, 0),
-        //                         child: Icon(
-        //                           Icons.history_sharp,
-        //                           color: Colors.white,
-        //                           size: 24,
-        //                         ),
-        //                       ),
-        //                     ),
-        //  FloatingActionButton(
-        //   onPressed: _rollbackAction,
-        //   backgroundColor: Colors.red,
-        //   child: const Icon(Icons.undo),
-        //   tooltip: 'تراجع عن العملية',
-        // )
         InkWell(
           onTap: _rollbackAction,
           child: Container(
@@ -405,20 +420,27 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'رقم الهاتف او الاسم',
-                    border: OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () async => await _cubit.onSearchSubmitted(_searchController.text.trim(), true),
-                    ),
-                  ),
-                ),
-              ),
+          Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'رقم الهاتف او الاسم',
+              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  _previousSearch = '';
+                  _cubit.fetchUsers(); // Reset to original list
+                },
+              )
+                  : null,
+            ),
+          ),
+        ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
@@ -472,39 +494,74 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.addCoach,
-                      arguments: {
-                        'isCoach': true,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.addCoach,
+                          arguments: {
+                            'isCoach': true,
+                          },
+                        );
                       },
-                    );
-                  },
-                  child: Container(
-                    height: 50.0, // Adjust as needed
-                    width: 180.0, // Adjust as needed
-                    decoration: BoxDecoration(
-                      color: Colors.blue, // Button color
-                      borderRadius: BorderRadius.circular(8), // Rounded corners
-                    ),
-                    child: Align(
-                      alignment: Alignment.center, // Align the text to the center
-                      child: Text(
-                        'إضافة طالب',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white, // Text color
-                          fontSize: 14.0, // Text size, adjust as needed
+                      child: Container(
+                        height: 50.0, // Adjust as needed
+                        width: 180.0, // Adjust as needed
+                        decoration: BoxDecoration(
+                          color: Colors.blue, // Button color
+                          borderRadius: BorderRadius.circular(8), // Rounded corners
+                        ),
+                        child: Align(
+                          alignment: Alignment.center, // Align the text to the center
+                          child: Text(
+                            'إضافة طالب',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white, // Text color
+                              fontSize: 14.0, // Text size, adjust as needed
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: InkWell(
+                      onTap: () async {
+                        await importStudentsFromExcel(context);
+                      },
+                      child: Container(
+                        height: 50.0,
+                        width: 180.0,
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            'استيراد بيانات الطلاب',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                ],
               ),
+
 
             ],
           ),
@@ -513,3 +570,66 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     );
   }
 }
+
+
+Future<void> importStudentsFromExcel(BuildContext context) async {
+  try {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls'],
+    );
+
+    if (result != null) {
+      File file;
+      if (kIsWeb) {
+        // For web, read the file as Uint8List
+        Uint8List? fileBytes = result.files.single.bytes;
+        if (fileBytes == null) {
+          print('Error: File bytes are null');
+          return;
+        }
+        file = File.fromRawPath(fileBytes);
+      } else {
+        // For mobile, use the file path
+        file = File(result.files.single.path!);
+      }
+
+      var bytes = await file.readAsBytes();
+      var excel = Excel.decodeBytes(bytes);
+
+      for (var table in excel.tables.keys) {
+        var rows = excel.tables[table]!.rows;
+        for (int i = 1; i < rows.length; i++) { // Skip header row
+          var row = rows[i];
+          if (row.length >= 3) { // Ensure required fields are present
+            String studentName = row[0]?.value?.toString() ?? '';
+            String studentPhone = row[1]?.value?.toString() ?? '';
+            String parentPhone = row[2]?.value?.toString() ?? '';
+
+            // Split name into first and last name
+            List<String> nameParts = studentName.split(' ');
+            String firstName = nameParts.first;
+            String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+            // Generate random password
+            String password = '123456'; // Default password
+
+            await SignUpCubit.get(context).addUser(
+              fName: firstName,
+              lName: lastName,
+              phone: studentPhone,
+              parentPhone: parentPhone,
+              password: password,
+              teachers: [],
+              lastPaymentNote: '',
+            );
+          }
+        }
+      }
+      print('Students imported successfully.');
+    }
+  } catch (e) {
+    print('Error importing students: $e');
+  }
+}
+

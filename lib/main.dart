@@ -3,7 +3,7 @@ import 'package:admin_future/add_grouup_of_schedules/presentation/onboarding_scr
 import 'package:admin_future/home/business_logic/Home/manage_attendence_cubit%20.dart';
 import 'package:admin_future/manage_users_coaches/business_logic/manage_users_cubit.dart';
 import 'package:admin_future/routiong.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+//import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:workmanager/workmanager.dart';
+//import 'package:workmanager/workmanager.dart';
 import 'core/bloc_observer.dart';
 import 'core/constants/routes_manager.dart';
 import 'firebase_options.dart';
@@ -62,20 +62,20 @@ import 'firebase_options.dart';
 //   // Do your work here...
 //   BackgroundFetch.finish(taskId);
 // }
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('Handling a background message:\n\n\n ${message.messageId}');
-  //initialize firebase
-  await Firebase.initializeApp();
-  FirebaseFirestore.instance.settings =
-  const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
-  //use android sett up to make the app work in the background
-  FirebaseFirestore.instance.enableNetwork();
-
-
-}
+// Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+//   print('Handling a background message:\n\n\n ${message.messageId}');
+//   //initialize firebase
+//   await Firebase.initializeApp();
+//   FirebaseFirestore.instance.settings =
+//   const Settings(
+//     persistenceEnabled: true,
+//     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+//   );
+//   //use android sett up to make the app work in the background
+//   FirebaseFirestore.instance.enableNetwork();
+//
+//
+// }
 late String mainRoute;
 //final remoteConfig = //firabase remote config
 //FirebaseRemoteConfig.instance;
@@ -186,38 +186,38 @@ Future<void> main() async {
     mainRoute = AppRoutes.home;
   }
   //await DioHelper.init();
-  FirebaseMessaging.onMessage.listen((event) async {
-    print('onMessage\n\n\n');
-    print(event.notification!.title);
-    print(event.notification!.body);
-    await Firebase.initializeApp();
-    FirebaseFirestore.instance.settings =
-    const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
-    //use android sett up to make the app work in the background
-    FirebaseFirestore.instance.enableNetwork();
-
-  });
+  // FirebaseMessaging.onMessage.listen((event) async {
+  //   print('onMessage\n\n\n');
+  //   print(event.notification!.title);
+  //   print(event.notification!.body);
+  //   await Firebase.initializeApp();
+  //   FirebaseFirestore.instance.settings =
+  //   const Settings(
+  //     persistenceEnabled: true,
+  //     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  //   );
+  //   //use android sett up to make the app work in the background
+  //   FirebaseFirestore.instance.enableNetwork();
+  //
+  // });
   // when click on notification to open app
-  FirebaseMessaging.onMessageOpenedApp.listen((event) async {
-    print('onMessageOpenedApp\n\n\n\n\n\n\n');
-    print(event.notification!.title);
-    print(event.notification!.body);
-    await Firebase.initializeApp();
-    FirebaseFirestore.instance.settings =
-    const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
-    //use android sett up to make the app work in the background
-    FirebaseFirestore.instance.enableNetwork();
-
-  });
-  // background notification
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler
-  );
+  // FirebaseMessaging.onMessageOpenedApp.listen((event) async {
+  //   print('onMessageOpenedApp\n\n\n\n\n\n\n');
+  //   print(event.notification!.title);
+  //   print(event.notification!.body);
+  //   await Firebase.initializeApp();
+  //   FirebaseFirestore.instance.settings =
+  //   const Settings(
+  //     persistenceEnabled: true,
+  //     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  //   );
+  //   //use android sett up to make the app work in the background
+  //   FirebaseFirestore.instance.enableNetwork();
+  //
+  // });
+  // background notificationa
+ // FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler
+  //);
   // firebase messaging PERMISSION
   //  await FirebaseMessaging.instance.requestPermission(
   //    alert: true,
@@ -228,15 +228,15 @@ Future<void> main() async {
   //    provisional: false,
   //    sound: true,
   //  );
-  await FirebaseMessaging.instance.requestPermission(
-    alert: false,
-    announcement: false,
-    badge: false,
-    carPlay: false,
-    criticalAlert: false,
-    provisional: false,
-    sound: false,
-  );
+  // await FirebaseMessaging.instance.requestPermission(
+  //   alert: false,
+  //   announcement: false,
+  //   badge: false,
+  //   carPlay: false,
+  //   criticalAlert: false,
+  //   provisional: false,
+  //   sound: false,
+  // );
 
 
   BlocOverrides.runZoned(() => runApp(const MyApp()),
