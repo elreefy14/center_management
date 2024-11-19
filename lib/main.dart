@@ -341,85 +341,48 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (context) => AddGroupCubit(
-        ),
-          //  lazy: false,
-        ),
-        //   BlocProvider(create: (context) => SignUpCubit()
-        //     ..getBranches()
-        //   ),
-        BlocProvider(create: (context) => ManageUsersCubit()
-          //    ,lazy: false
-        ),
-        BlocProvider(create: (context) => ManageAttendenceCubit(),
-
-          // lazy: false,
-          //    ..addToWhatsAppGroup('https://chat.whatsapp.com/FV27zAcLJocKycZDScif1S', '+2001020684123 ')
-
-          //    ..getNearestScedule(
-          //  )
-        ),
-        // BlocProvider(create: (context) => SignUpCubit()
-        // //     ..addUser(lName: 'mohamed',
-        // //         fName: 'mariam',
-        // //         phone: '01114478816',
-        // //         password: '123456',
-        // //         role: 'admin',
-        //   //    ,lazy: false
-        //     // ),
-        //       ..createUser(uId: 'first',
-        // fname: 'mariam',
-        // lname: 'mohamed',
-        // phone: '01114478816',
-        // password: '123456',
-        // role: 'admin',
-        //     ),
-        //    ),
-      ],child:  ScreenUtilInit(
-      designSize: const Size(390, 845),
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (context, child) =>
-          MaterialApp(
-            // localizationsDelegates: [
-            //   GlobalMaterialLocalizations.delegate,
-            //   GlobalWidgetsLocalizations.delegate,
-            //   GlobalCupertinoLocalizations.delegate,
-            // ],
-            // supportedLocales: const [
-            //   Locale('ar', "AE"),
-            // ],
-            builder: BotToastInit(),
-            navigatorObservers: [BotToastNavigatorObserver()],
-            debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              timePickerTheme: const TimePickerThemeData(
-                elevation: 10,
-                entryModeIconColor: Colors.black,
-                hourMinuteShape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-                backgroundColor: Colors.white,
+    return ScreenUtilInit(
+    designSize: const Size(390, 845),
+    minTextAdapt: true,
+    splitScreenMode: true,
+    builder: (context, child) =>
+        MaterialApp(
+          // localizationsDelegates: [
+          //   GlobalMaterialLocalizations.delegate,
+          //   GlobalWidgetsLocalizations.delegate,
+          //   GlobalCupertinoLocalizations.delegate,
+          // ],
+          // supportedLocales: const [
+          //   Locale('ar', "AE"),
+          // ],
+          builder: BotToastInit(),
+          navigatorObservers: [BotToastNavigatorObserver()],
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            timePickerTheme: const TimePickerThemeData(
+              elevation: 10,
+              entryModeIconColor: Colors.black,
+              hourMinuteShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(8)),
               ),
-              textSelectionTheme: const TextSelectionThemeData(
-                cursorColor: Colors.blue,
-                selectionColor: Colors.blue,
-                selectionHandleColor: Colors.blue,
-              ),
-              primarySwatch: //use this as material color #4F46E5
-              Colors.blue,
-              //MyColors.primaryColor,
+              backgroundColor: Colors.white,
             ),
-            initialRoute:
-            mainRoute,
-            //AppRoutes.manageGroups,
-            onGenerateRoute: RouteGenerator.generateRoute,
+            textSelectionTheme: const TextSelectionThemeData(
+              cursorColor: Colors.blue,
+              selectionColor: Colors.blue,
+              selectionHandleColor: Colors.blue,
+            ),
+            primarySwatch: //use this as material color #4F46E5
+            Colors.blue,
+            //MyColors.primaryColor,
           ),
+          initialRoute:
+          mainRoute,
+          //AppRoutes.manageGroups,
+          onGenerateRoute: RouteGenerator.generateRoute,
+        ),
 
-    ),
-    );
+        );
   }
 }
 

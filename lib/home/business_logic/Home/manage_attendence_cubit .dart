@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../add_grouup_of_schedules/presentation/onboarding_screen.dart';
 import '../../../core/constants/routes_manager.dart';
@@ -70,16 +71,24 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
     }
   }
 
-void sendWhatsAppMessage(String phoneNumber) async {
-  final message = Uri.encodeComponent('hello');
-  final url = 'https://wa.me/$phoneNumber?text=$message';
-  if (await canLaunch(url)) {
-    await launch(url);
-  } else {
-    throw 'Could not launch $url';
-  }
-}
+  static Future<void> sendWhatsAppMessage(String phoneNumber) async {
+    try {
+      final message = Uri.encodeComponent('hello');
+      final webUrl = 'https://wa.me/$phoneNumber?text=$message';
 
+      if (await canLaunchUrl(Uri.parse(webUrl))) {
+        await launchUrl(
+          Uri.parse(webUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        throw 'Could not launch WhatsApp';
+      }
+    } catch (e) {
+      debugPrint('Error sending WhatsApp message: $e');
+      rethrow;
+    }
+  }
 
   Future<void> getNearestSchedule() async {
     try {
@@ -1265,16 +1274,16 @@ Future<void> addGroup(
         //that is group model
       GroupModel group = GroupModel.fromJson(docSnapshot.data() as Map<String, dynamic>);
       //  Map<String, dynamic> groupData = docSnapshot.data() as Map<String, dynamic>;
-        context.read<AddGroupCubit>().updateSelectedUsersAndCoachesAndTimesAndBranchAndMaxUsers(
-            selectedUsers: group.users,
-            selectedOption: 'تعديل',
-            //selectedTimes: group.days,
-            context: context,
-            maxUsers: group.maxUsers,
-            selectedBranch: branchId, 
-            selectedCoaches: group.coaches,
-            selectedDays: group.days,
-        );
+      //   context.read<AddGroupCubit>().updateSelectedUsersAndCoachesAndTimesAndBranchAndMaxUsers(
+      //       selectedUsers: group.users,
+      //       selectedOption: 'تعديل',
+      //       //selectedTimes: group.days,
+      //       context: context,
+      //       maxUsers: group.maxUsers,
+      //       selectedBranch: branchId,
+      //       selectedCoaches: group.coaches,
+      //       selectedDays: group.days,
+      //   );
 //debug parameters schedule id
         print('scheduleId: ${group.schedulesIds}');
         print('scheduleDay in ddelete : ${group.schedulesDays}');

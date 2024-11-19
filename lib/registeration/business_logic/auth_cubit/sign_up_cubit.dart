@@ -98,6 +98,7 @@ class SignUpCubit extends Cubit<SignUpState> {
   final phoneController = TextEditingController();
   final parentPhoneController = TextEditingController();
   final passwordController = TextEditingController();
+  final groupCode = TextEditingController();
   List<String>? checkboxGroupValues;
   FormFieldController<List<String>>? checkboxGroupValueController;
   bool showPassword = true;
@@ -262,6 +263,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     required String lastPaymentNote,
     required String parentPhone,
     String? studentCode,
+     String? groupCode,
   }) async {
     final logger = Logger(
       printer: PrettyPrinter(
@@ -391,13 +393,14 @@ class SignUpCubit extends Cubit<SignUpState> {
         branches: [],
         password: password,
         teachers: teachers,
+          groupCode:groupCode??'',
       );
 
       logger.d('Saving user to Firestore');
       await FirebaseFirestore.instance
           .collection('users')
           .doc(newUid)
-          .set(model.toMap());
+          .set(model.toJson());
 
       logger.d('Getting admin document for re-authentication');
       final adminDoc = await FirebaseFirestore.instance
@@ -672,7 +675,7 @@ class SignUpCubit extends Cubit<SignUpState> {
       FirebaseFirestore.instance
           .collection('users')
           .doc(uId)
-          .set(model.toMap())
+          .set(model.toJson())
           .then((value) {
         //save user to conatct list in the device
 
@@ -790,7 +793,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     //     .set(model.toMap());//use batch
     batch.set(
       FirebaseFirestore.instance.collection('users').doc(uId),
-      model.toMap(),
+      model.toJson(),
     );
     batch.commit();
     showToast(
@@ -894,7 +897,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     FirebaseFirestore.instance
         .collection('users')
         .doc(uId)
-        .set(model.toMap());
+        .set(model.toJson());
     showToast(
       msg: 'تم التسجيل بنجاح',
       state: ToastStates.SUCCESS,

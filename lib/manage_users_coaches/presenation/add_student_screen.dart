@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:admin_future/registeration/presenation/widget/component.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -124,14 +127,30 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
 
     return file;
   }
+
   Future<void> sendWhatsAppMessageWithBarcode({
     required String phone,
     required String uId,
     required String name,
   }) async {
     try {
-      final barcodeFile = await generateBarcodeImage(uId, name);
+      if (kIsWeb) {
+        final barcodeImage = await generateBarcodeImage(uId, name);
+        final bytes = await barcodeImage.readAsBytes();
+        final blob = html.Blob([bytes]);
+        final url = html.Url.createObjectUrlFromBlob(blob);
 
+        final anchor = html.AnchorElement()
+          ..href = url
+          ..download = 'barcode_$uId.png'
+          ..click();
+
+        html.Url.revokeObjectUrl(url);
+        return;
+      }
+
+      // Non-web sharing logic
+      final barcodeFile = await generateBarcodeImage(uId, name);
       final message = 'مرحباً $name!\n'
           'معرف حسابك هو: $uId\n'
           'يرجى مسح الباركود أدناه للتحقق من هويتك.\n'
@@ -143,9 +162,8 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
         text: message,
         subject: 'معلومات الحساب',
       );
-
     } catch (e) {
-      print('Error sending WhatsApp message with barcode: $e');
+      print('Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('حدث خطأ أثناء إرسال الرسالة'),
@@ -166,11 +184,13 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
         lName: SignUpCubit.get(context).lastNameController.text,
         phone: SignUpCubit.get(context).phoneController.text.trim(),
         password: SignUpCubit.get(context).passwordController.text,
+        groupCode: SignUpCubit.get(context).groupCode.text,
         hourlyRate: '30',
         teachers: [],
         lastPaymentNote: '', // Added empty string as default
         parentPhone: SignUpCubit.get(context).parentPhoneController.text.trim(), // Using parent phone controller
         studentCode: null, // Added null as default
+
       );
 
       if (newUid != null && context.read<SignUpCubit>().shouldSendWhatsApp) {
@@ -366,6 +386,22 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
                   },
                   Icons.person,
                 ),
+              ),     SizedBox(height: 20.0.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                child: BuildTextFormField2(
+                  'كود المجموعه',
+                  SignUpCubit.get(context).groupCode,
+                  TextInputType.name,
+                  'كود المجموعه',
+                      (value) {
+                    if (value!.isEmpty) {
+                      return 'الرجاء ادخال الاسم الاخير';
+                    }
+                    return null;
+                  },
+                  Icons.person,
+                ),
               ),
               const SizedBox(height: 20.0),
               Padding(
@@ -384,6 +420,7 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
                   Icons.phone,
                 ),
               ),
+                      const SizedBox(height: 20.0),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 35.0.w),
                 child: BuildTextFormField2(
@@ -511,7 +548,7 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
           color: Colors.white,
         ),
       ),
-    ),
+     ),
     ),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 35.0.w),
@@ -524,7 +561,7 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
                             });
                           },
                           title: Text(
-                            'إرسال معلومات الحساب عبر واتساب',
+                            'الحصول علي الصورة',
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontFamily: 'IBM Plex Sans Arabic',

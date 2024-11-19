@@ -446,7 +446,7 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    Text('المدرب', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('الطالب', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text('الهاتف', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text('درجات', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text('الاشتراك', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -570,9 +570,12 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     );
   }
 }
+//i want to edit function to import excel file with these headers.الاسم رقم واتس الطالب
+//  رقم ولي الامر مصاريف .
+//  .Future importStudentsFromExcel(BuildContext context) async {   try {     FilePickerResult? result = await FilePicker.platform.pickFiles(       type: FileType.custom,       allowedExtensions: ['xlsx', 'xls'],     );      if (result != null) {       File file;       if (kIsWeb) {         // For web, read the file as Uint8List         Uint8List? fileBytes = result.files.single.bytes;         if (fileBytes == null) {           print('Error: File bytes are null');           return;         }         file = File.fromRawPath(fileBytes);       } else {         // For mobile, use the file path         file = File(result.files.single.path!);       }        var bytes = await file.readAsBytes();       var excel = Excel.decodeBytes(bytes);        for (var table in excel.tables.keys) {         var rows = excel.tables[table]!.rows;         for (int i = 1; i < rows.length; i++) { // Skip header row           var row = rows[i];           if (row.length >= 3) { // Ensure required fields are present             String studentName = row[0]?.value?.toString() ?? '';             String studentPhone = row[1]?.value?.toString() ?? '';             String parentPhone = row[2]?.value?.toString() ?? '';              // Split name into first and last name             List nameParts = studentName.split(' ');             String firstName = nameParts.first;             String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';              // Generate random password             String password = '123456'; // Default password              await SignUpCubit.get(context).addUser(               fName: firstName,               lName: lastName,               phone: studentPhone,               parentPhone: parentPhone,               password: password,               teachers: [],               lastPaymentNote: '',             );           }         }       }       print('Students imported successfully.');     }   } catch (e) {     print('Error importing students: $e');   } }.
 
 
-Future<void> importStudentsFromExcel(BuildContext context) async {
+Future importStudentsFromExcel(BuildContext context) async {
   try {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -607,7 +610,7 @@ Future<void> importStudentsFromExcel(BuildContext context) async {
             String parentPhone = row[2]?.value?.toString() ?? '';
 
             // Split name into first and last name
-            List<String> nameParts = studentName.split(' ');
+            List nameParts = studentName.split(' ');
             String firstName = nameParts.first;
             String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
@@ -626,10 +629,10 @@ Future<void> importStudentsFromExcel(BuildContext context) async {
           }
         }
       }
+
       print('Students imported successfully.');
     }
   } catch (e) {
     print('Error importing students: $e');
   }
 }
-

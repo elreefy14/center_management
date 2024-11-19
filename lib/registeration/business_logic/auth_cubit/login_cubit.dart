@@ -300,7 +300,7 @@ static LoginCubit get(context) => BlocProvider.of(context);
         //     'https://static.toiimg.com/thumb/resizemode-4,msid-76729536,width-1200,height-900/76729536.jpg',
         // bio: 'Write you own bio...',
       );
-      FirebaseFirestore.instance.collection('users').doc(uId).set(model.toMap())
+      FirebaseFirestore.instance.collection('users').doc(uId).set(model.toJson())
           .then((value) {
         emit(CreateGoogleUserSuccessState(uId!));
       }).catchError((error) {
