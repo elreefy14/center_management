@@ -18,6 +18,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/routes_manager.dart';
 import '../business_logic/manage_students_cubit.dart';
+import 'package:admin_future/core/utils/toast_helper.dart';
 
 class ManageStudentsScreen extends StatefulWidget {
   const ManageStudentsScreen({Key? key}) : super(key: key);
@@ -69,7 +70,7 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     }
 
     // Debounce search after each character starting from 2 letters
-    if (currentText.length >=3) {
+    if (currentText.length >= 3) {
       _debounceTimer = Timer(const Duration(milliseconds: 300), () {
         _cubit.onSearchSubmitted(currentText, true);
       });
@@ -78,16 +79,15 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     _previousSearch = currentText;
   }
 
-
-
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       _cubit.fetchMoreUsers();
     }
   }
 
-
-  void _showAddMarksDialog(BuildContext context, UserModel user, ManageStudentsCubit manageStudentsCubit) {
+  void _showAddMarksDialog(BuildContext context, UserModel user,
+      ManageStudentsCubit manageStudentsCubit) {
     final marksController = TextEditingController();
     String? selectedExamRange = manageStudentsCubit.selectedExamRange;
     String? selectedTeacher = manageStudentsCubit.selectedTeacher;
@@ -142,7 +142,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                           controller: marksController,
                           decoration: InputDecoration(
                             hintText: 'الدرجات',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.end,
@@ -157,8 +158,18 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                           onChanged: (String? newValue) {
                             manageStudentsCubit.setSelectedExamRange(newValue!);
                           },
-                          items: <String>['10', '20', '30', '40', '50', '60', '70', '80', '90', '100']
-                              .map<DropdownMenuItem<String>>((String value) {
+                          items: <String>[
+                            '10',
+                            '20',
+                            '30',
+                            '40',
+                            '50',
+                            '60',
+                            '70',
+                            '80',
+                            '90',
+                            '100'
+                          ].map<DropdownMenuItem<String>>((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
                               child: Text(value),
@@ -166,7 +177,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                           }).toList(),
                           decoration: InputDecoration(
                             hintText: 'اختر من 10 إلى 100',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -186,14 +198,14 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                           if (marksController.text.isNotEmpty &&
                               selectedExamRange != null &&
                               selectedTeacher != null) {
-
                             pendingMark = double.parse(marksController.text);
                             Navigator.pop(context);
 
                             _startRollbackTimer(
                               'marks',
-                                  () async {
-                                final markId = await manageStudentsCubit.addMark(
+                              () async {
+                                final markId =
+                                    await manageStudentsCubit.addMark(
                                   user.uId!,
                                   pendingMark!,
                                   selectedExamRange,
@@ -205,7 +217,7 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                                 );
                                 return markId;
                               },
-                                  () {
+                              () {
                                 showToast(
                                   state: ToastStates.SUCCESS,
                                   msg: 'تم إلغاء إضافة الدرجة',
@@ -222,8 +234,13 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                         child: Container(
                           width: 100,
                           height: 40,
-                          decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                          child: const Align(alignment: Alignment.center, child: Text('إضافة', style: TextStyle(color: Colors.white))),
+                          decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Align(
+                              alignment: Alignment.center,
+                              child: Text('إضافة',
+                                  style: TextStyle(color: Colors.white))),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -232,8 +249,13 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                         child: Container(
                           width: 100,
                           height: 40,
-                          decoration: BoxDecoration(color: const Color(0xFFB9B9B9), borderRadius: BorderRadius.circular(8)),
-                          child: const Align(alignment: Alignment.center, child: Text('إلغاء', style: TextStyle(color: Colors.white))),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFB9B9B9),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Align(
+                              alignment: Alignment.center,
+                              child: Text('إلغاء',
+                                  style: TextStyle(color: Colors.white))),
                         ),
                       ),
                     ],
@@ -247,7 +269,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     );
   }
 
-  void _showPaymentDialog(BuildContext context, UserModel user, ManageStudentsCubit manageStudentsCubit) {
+  void _showPaymentDialog(BuildContext context, UserModel user,
+      ManageStudentsCubit manageStudentsCubit) {
     final paymentController = TextEditingController();
     double? pendingAmount;
     String? pendingTeacher;
@@ -263,13 +286,16 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('دفع الاشتراك', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text('دفع الاشتراك',
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: paymentController,
                     decoration: InputDecoration(
                       hintText: 'المبلغ المدفوع',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.end,
@@ -280,16 +306,19 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                     children: [
                       InkWell(
                         onTap: () {
-                          if (paymentController.text.isNotEmpty && manageStudentsCubit.selectedTeacher != null) {
-
-                            pendingAmount = double.parse(paymentController.text);
-                            pendingTeacher = manageStudentsCubit.selectedTeacher;
+                          if (paymentController.text.isNotEmpty &&
+                              manageStudentsCubit.selectedTeacher != null) {
+                            pendingAmount =
+                                double.parse(paymentController.text);
+                            pendingTeacher =
+                                manageStudentsCubit.selectedTeacher;
                             Navigator.pop(context);
 
                             _startRollbackTimer(
                               'subscription',
-                                  () async {
-                                final subscriptionId = await manageStudentsCubit.addSubscription(
+                              () async {
+                                final subscriptionId =
+                                    await manageStudentsCubit.addSubscription(
                                   studentId: user.uId!,
                                   amount: pendingAmount!,
                                   teacherName: pendingTeacher!,
@@ -300,7 +329,7 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                                 );
                                 return subscriptionId;
                               },
-                                  () {
+                              () {
                                 showToast(
                                   state: ToastStates.SUCCESS,
                                   msg: 'تم إلغاء إضافة الاشتراك',
@@ -317,8 +346,13 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                         child: Container(
                           width: 100,
                           height: 40,
-                          decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                          child: const Align(alignment: Alignment.center, child: Text('دفع', style: TextStyle(color: Colors.white))),
+                          decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Align(
+                              alignment: Alignment.center,
+                              child: Text('دفع',
+                                  style: TextStyle(color: Colors.white))),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -327,8 +361,13 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                         child: Container(
                           width: 100,
                           height: 40,
-                          decoration: BoxDecoration(color: const Color(0xFFB9B9B9), borderRadius: BorderRadius.circular(8)),
-                          child: const Align(alignment: Alignment.center, child: Text('إلغاء', style: TextStyle(color: Colors.white))),
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFB9B9B9),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Align(
+                              alignment: Alignment.center,
+                              child: Text('إلغاء',
+                                  style: TextStyle(color: Colors.white))),
                         ),
                       ),
                     ],
@@ -343,10 +382,10 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
   }
 
   void _startRollbackTimer(
-      String type,
-      Future<String> Function() action,
-      VoidCallback onRollback,
-      ) {
+    String type,
+    Future<String> Function() action,
+    VoidCallback onRollback,
+  ) {
     setState(() {
       _showRollbackButton = true;
       _lastActionType = type;
@@ -365,7 +404,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
       } catch (e) {
         showToast(
           state: ToastStates.ERROR,
-          msg: type == 'marks' ? 'فشل في إضافة الدرجة' : 'فشل في إضافة الاشتراك',
+          msg:
+              type == 'marks' ? 'فشل في إضافة الدرجة' : 'فشل في إضافة الاشتراك',
         );
         setState(() {
           _showRollbackButton = false;
@@ -384,7 +424,9 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
       });
       showToast(
         state: ToastStates.SUCCESS,
-        msg: _lastActionType == 'marks' ? 'تم إلغاء إضافة الدرجة' : 'تم إلغاء إضافة الاشتراك',
+        msg: _lastActionType == 'marks'
+            ? 'تم إلغاء إضافة الدرجة'
+            : 'تم إلغاء إضافة الاشتراك',
       );
     }
   }
@@ -394,63 +436,65 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     return BlocProvider<ManageStudentsCubit>(
       create: (context) => _cubit,
       child: Scaffold(
-     //   appBar: AppBar(title: const Text('إدارة الطلاب')),
+        //   appBar: AppBar(title: const Text('إدارة الطلاب')),
         floatingActionButton: _showRollbackButton
-            ?
-        InkWell(
-          onTap: _rollbackAction,
-          child: Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: const Align(
-              alignment: AlignmentDirectional(0, 0),
-              child: Icon(
-                Icons.history_sharp,
-                color: Colors.white,
-                size: 24,
-              ),
-            )
-          )
-        )
+            ? InkWell(
+                onTap: _rollbackAction,
+                child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: const Align(
+                      alignment: AlignmentDirectional(0, 0),
+                      child: Icon(
+                        Icons.history_sharp,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    )))
             : null,
         body: SafeArea(
           child: Column(
             children: [
-          Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'رقم الهاتف او الاسم',
-              border: OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  _previousSearch = '';
-                  _cubit.fetchUsers(); // Reset to original list
-                },
-              )
-                  : null,
-            ),
-          ),
-        ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'رقم الهاتف او الاسم',
+                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _previousSearch = '';
+                              _cubit.fetchUsers(); // Reset to original list
+                            },
+                          )
+                        : null,
+                  ),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    Text('الطالب', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('الهاتف', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('درجات', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('الاشتراك', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('المزيد', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('الطالب',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('الهاتف',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('درجات',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('الاشتراك',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('المزيد',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -461,8 +505,11 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                       return const Center(child: CircularProgressIndicator());
                     } else if (state is UsersError) {
                       return Center(child: Text(state.message));
-                    } else if (state is UsersLoaded || state is UsersLoadingMore) {
-                      final users = state is UsersLoaded ? state.users : (state as UsersLoadingMore).currentUsers;
+                    } else if (state is UsersLoaded ||
+                        state is UsersLoadingMore) {
+                      final users = state is UsersLoaded
+                          ? state.users
+                          : (state as UsersLoadingMore).currentUsers;
                       return ListView.builder(
                         controller: _scrollController,
                         itemCount: users.length,
@@ -473,18 +520,28 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                             children: [
                               Text(user.name!),
                               GestureDetector(
-                                onTap: () => Clipboard.setData(ClipboardData(text: user.phone!)),
-                                child: Text(user.phone!, style: const TextStyle(color: Colors.blue)),
+                                onTap: () => Clipboard.setData(
+                                    ClipboardData(text: user.phone!)),
+                                child: Text(user.phone!,
+                                    style: const TextStyle(color: Colors.blue)),
                               ),
-                              IconButton(icon: const Icon(Icons.add), onPressed: () => _showAddMarksDialog(context, user, _cubit)),
-                              IconButton(icon: const Icon(Icons.payment), onPressed: () => _showPaymentDialog(context, user, _cubit)),
-                              IconButton(icon: const Icon(Icons.info), onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.editProfile,
-                                  arguments: user as UserModel,
-                                );
-                              }),
+                              IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: () => _showAddMarksDialog(
+                                      context, user, _cubit)),
+                              IconButton(
+                                  icon: const Icon(Icons.payment),
+                                  onPressed: () => _showPaymentDialog(
+                                      context, user, _cubit)),
+                              IconButton(
+                                  icon: const Icon(Icons.info),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.editProfile,
+                                      arguments: user as UserModel,
+                                    );
+                                  }),
                             ],
                           );
                         },
@@ -497,7 +554,6 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: InkWell(
@@ -515,10 +571,12 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                         width: 180.0, // Adjust as needed
                         decoration: BoxDecoration(
                           color: Colors.blue, // Button color
-                          borderRadius: BorderRadius.circular(8), // Rounded corners
+                          borderRadius:
+                              BorderRadius.circular(8), // Rounded corners
                         ),
                         child: Align(
-                          alignment: Alignment.center, // Align the text to the center
+                          alignment:
+                              Alignment.center, // Align the text to the center
                           child: Text(
                             'إضافة طالب',
                             textAlign: TextAlign.center,
@@ -558,11 +616,8 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
                       ),
                     ),
                   ),
-
                 ],
               ),
-
-
             ],
           ),
         ),
@@ -573,7 +628,6 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
 //i want to edit function to import excel file with these headers.الاسم رقم واتس الطالب
 //  رقم ولي الامر مصاريف .
 //  .Future importStudentsFromExcel(BuildContext context) async {   try {     FilePickerResult? result = await FilePicker.platform.pickFiles(       type: FileType.custom,       allowedExtensions: ['xlsx', 'xls'],     );      if (result != null) {       File file;       if (kIsWeb) {         // For web, read the file as Uint8List         Uint8List? fileBytes = result.files.single.bytes;         if (fileBytes == null) {           print('Error: File bytes are null');           return;         }         file = File.fromRawPath(fileBytes);       } else {         // For mobile, use the file path         file = File(result.files.single.path!);       }        var bytes = await file.readAsBytes();       var excel = Excel.decodeBytes(bytes);        for (var table in excel.tables.keys) {         var rows = excel.tables[table]!.rows;         for (int i = 1; i < rows.length; i++) { // Skip header row           var row = rows[i];           if (row.length >= 3) { // Ensure required fields are present             String studentName = row[0]?.value?.toString() ?? '';             String studentPhone = row[1]?.value?.toString() ?? '';             String parentPhone = row[2]?.value?.toString() ?? '';              // Split name into first and last name             List nameParts = studentName.split(' ');             String firstName = nameParts.first;             String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';              // Generate random password             String password = '123456'; // Default password              await SignUpCubit.get(context).addUser(               fName: firstName,               lName: lastName,               phone: studentPhone,               parentPhone: parentPhone,               password: password,               teachers: [],               lastPaymentNote: '',             );           }         }       }       print('Students imported successfully.');     }   } catch (e) {     print('Error importing students: $e');   } }.
-
 
 Future importStudentsFromExcel(BuildContext context) async {
   try {
@@ -602,9 +656,11 @@ Future importStudentsFromExcel(BuildContext context) async {
 
       for (var table in excel.tables.keys) {
         var rows = excel.tables[table]!.rows;
-        for (int i = 1; i < rows.length; i++) { // Skip header row
+        for (int i = 1; i < rows.length; i++) {
+          // Skip header row
           var row = rows[i];
-          if (row.length >= 3) { // Ensure required fields are present
+          if (row.length >= 3) {
+            // Ensure required fields are present
             String studentName = row[0]?.value?.toString() ?? '';
             String studentPhone = row[1]?.value?.toString() ?? '';
             String parentPhone = row[2]?.value?.toString() ?? '';
@@ -612,7 +668,8 @@ Future importStudentsFromExcel(BuildContext context) async {
             // Split name into first and last name
             List nameParts = studentName.split(' ');
             String firstName = nameParts.first;
-            String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+            String lastName =
+                nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
             // Generate random password
             String password = '123456'; // Default password

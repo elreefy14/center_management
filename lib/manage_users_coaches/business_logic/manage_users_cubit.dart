@@ -8,14 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../registeration/data/userModel.dart';
-import '../../registeration/presenation/widget/widget.dart';
 import '../../home/data/Notification.dart';
 import '../../home/data/day_model.dart';
 import '../../home/data/schedules.dart';
 import '../../home/presenation/widget/manage_groups_screen.dart';
+import 'package:admin_future/core/utils/toast_helper.dart';
+import 'package:admin_future/registeration/presenation/widget/widget.dart'
+    show defaultFormField, defaultButton;
 part 'manage_users_state.dart';
-class ManageUsersCubit extends Cubit<ManageUsersState> {
 
+class ManageUsersCubit extends Cubit<ManageUsersState> {
   //final UserModel userModel;
   ManageUsersCubit() : super(ManageSalaryInitial());
   static ManageUsersCubit get(context) => BlocProvider.of(context);
@@ -88,17 +90,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   //     emit(state.copyWith(isSearch: bool));
   //   }
 
-
-
-
-
-
-
-
-
-
-
-
   bool isGrey = false;
   TabController? tabController;
   //messageController
@@ -116,6 +107,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   void initTabController() {
     tabController = TabController(length: 2, vsync: NavigatorState());
   }
+
   void initControllers(userModel) {
     firstNameController = TextEditingController(text: userModel.fname);
     lastNameController = TextEditingController(text: userModel.lname);
@@ -123,13 +115,12 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     salaryPerHourController =
         TextEditingController(text: userModel.hourlyRate.toString() ?? '');
     //numberOfSessionsController
-    numberOfSessionsController =
-        TextEditingController(text: userModel.numberOfSessions.toString() ?? '');
+    numberOfSessionsController = TextEditingController(
+        text: userModel.numberOfSessions.toString() ?? '');
     //passwordController
     passwordController = TextEditingController(
       text: userModel.password.toString() ?? '',
     );
-
   }
   //make function that take phone number and add that phone to whatsapp group
 
@@ -407,24 +398,26 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //   }
 //make update user info like above function
   Future<bool> checkInternetConnection() async {
-  try {
-    final response = await http.get(Uri.parse('https://www.google.com'));
-    return response.statusCode == 200;
-  } catch (e) {
-    return false;
+    try {
+      final response = await http.get(Uri.parse('https://www.google.com'));
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
   }
-}
+
   Future<void>? updateUserInfo(
       {required String fname,
       required String lname,
       required String phone,
-        String? hourlyRate,
-       // String? password,
-      required uid, required String? numberOfSessions}) async {
+      String? hourlyRate,
+      // String? password,
+      required uid,
+      required String? numberOfSessions}) async {
     emit(UpdateUserInfoLoadingState());
-  //  if (password.isEmpty) {
-  //    password = '123456';
-  //  }
+    //  if (password.isEmpty) {
+    //    password = '123456';
+    //  }
     //if phone number is arabic number start with ٠١ turn it into english number
     if (phone.startsWith('٠١')) {
       phone = phone.replaceAll('٠', '0');
@@ -457,7 +450,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //   emit(UpdateUserInfoErrorState('تأكد من اتصالك بالإنترنت'));
 // }
     final updateData = <String, Object?>{};
-
 
     final notificationData = <String, dynamic>{};
     if (hourlyRate != null && hourlyRate != '' && hourlyRate != 'null') {
@@ -503,21 +495,15 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     //     .doc(uid)
     //     .collection('notifications')
     //     .add(notificationData);
-     FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .update(updateData);
-  //if internet is not available show toast message
-  //and emit state
-      showToast(
+    FirebaseFirestore.instance.collection('users').doc(uid).update(updateData);
+    //if internet is not available show toast message
+    //and emit state
+    showToast(
       state: ToastStates.SUCCESS,
       msg: 'تم تحديث معلومات الحساب الشخصية',
     );
-      emit(UpdateUserInfoSuccessState());
-
-
+    emit(UpdateUserInfoSuccessState());
   }
-
 
   Future<void> updatePassword(String password, String? uid) async {
     try {
@@ -534,9 +520,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 
       // Update password
       await FirebaseAuth.instance.currentUser!.updatePassword(password);
-
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   Future<void> sendMessage(
@@ -584,66 +568,66 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   }
 
   Future<void> deleteSchedule({
-  required String scheduleId,
-  required String day,
-  required List<String>? usersIds,
-   List<String>? coachesIds,
-}) async {
-  emit(DeleteScheduleLoadingState());
+    required String scheduleId,
+    required String day,
+    required List<String>? usersIds,
+    List<String>? coachesIds,
+  }) async {
+    emit(DeleteScheduleLoadingState());
 
-  try {
-    WriteBatch batch = FirebaseFirestore.instance.batch();
+    try {
+      WriteBatch batch = FirebaseFirestore.instance.batch();
 
-    // Delete the schedule document
-    DocumentReference scheduleRef = FirebaseFirestore.instance
-        .collection('admins')
-        .doc(FirebaseAuth.instance.currentUser!.uid)
-        .collection('schedules')
-        .doc(day)
-        .collection('schedules')
-        .doc(scheduleId);
-    batch.delete(scheduleRef);
+      // Delete the schedule document
+      DocumentReference scheduleRef = FirebaseFirestore.instance
+          .collection('admins')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .collection('schedules')
+          .doc(day)
+          .collection('schedules')
+          .doc(scheduleId);
+      batch.delete(scheduleRef);
 
-    // Delete the users subcollection
-    CollectionReference usersRef = scheduleRef.collection('users');
-    QuerySnapshot usersSnapshot = await usersRef.get();
-    usersSnapshot.docs.forEach((doc) {
-      batch.delete(doc.reference);
-    });
+      // Delete the users subcollection
+      CollectionReference usersRef = scheduleRef.collection('users');
+      QuerySnapshot usersSnapshot = await usersRef.get();
+      usersSnapshot.docs.forEach((doc) {
+        batch.delete(doc.reference);
+      });
 
-    // Commit the batched write
-    await batch.commit();
+      // Commit the batched write
+      await batch.commit();
 
-    // Remove the schedule from the list of schedules
-    schedules.removeWhere((schedule) => schedule.scheduleId == scheduleId);
+      // Remove the schedule from the list of schedules
+      schedules.removeWhere((schedule) => schedule.scheduleId == scheduleId);
 
-    // Delete the schedule from each user's collection
-    if (usersIds != null) {
-      for (String userId in usersIds) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('schedules')
-            .doc(scheduleId)
-            .delete();
+      // Delete the schedule from each user's collection
+      if (usersIds != null) {
+        for (String userId in usersIds) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('schedules')
+              .doc(scheduleId)
+              .delete();
+        }
       }
-    }
-     // Delete the schedule from each coach's collection
-    if (coachesIds != null) {
-      for (String coachId in coachesIds) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(coachId)
-            .collection('schedules')
-            .doc(scheduleId)
-            .delete();
+      // Delete the schedule from each coach's collection
+      if (coachesIds != null) {
+        for (String coachId in coachesIds) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(coachId)
+              .collection('schedules')
+              .doc(scheduleId)
+              .delete();
+        }
       }
+      emit(DeleteScheduleSuccessState());
+    } catch (error) {
+      emit(DeleteScheduleErrorState(error.toString()));
     }
-    emit(DeleteScheduleSuccessState());
-  } catch (error) {
-    emit(DeleteScheduleErrorState(error.toString()));
   }
-}
 
   void updateSchedules(ScheduleModel schedule) {
     emit(UpdateSchedulesLoadingState());
@@ -678,8 +662,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   //   ));
   // }
 
-
-   deleteUser({required String uid}) {
+  deleteUser({required String uid}) {
     emit(DeleteUserLoadingState());
 
     // Delete the user document
@@ -688,10 +671,11 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
         .doc(uid)
         .delete()
         .then((value) {
-
       // Delete the user's subcollection "schedules"
-      CollectionReference schedulesCollection =
-      FirebaseFirestore.instance.collection('users').doc(uid).collection('schedules');
+      CollectionReference schedulesCollection = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('schedules');
       schedulesCollection.get().then((schedulesSnapshot) {
         WriteBatch batch = FirebaseFirestore.instance.batch();
         schedulesSnapshot.docs.forEach((doc) {
@@ -725,31 +709,42 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //edit this function to enable it when internet is not available
 //by show toast message
 //and emit state
-//then pop 
+//then pop
 //use firebase persistance to get data from cache
 
   bool showRollbackButton = false;
-  int? currentTotalSalary ;
-  int? currentNumberOfSessions ;
+  int? currentTotalSalary;
+  int? currentNumberOfSessions;
   String? latestUserId;
 
-  reduceSessions(context, {String? userId, String? userName, required String sessions, required int NumberOfSessions})
-  async {
+  reduceSessions(context,
+      {String? userId,
+      String? userName,
+      required String sessions,
+      required int NumberOfSessions}) async {
     emit(ReduceSessionsLoadingState());
     currentNumberOfSessions = NumberOfSessions;
     latestUserId = userId;
 
     //bool isConnected = await checkInternetConnectivity();
-      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(userId).get(const GetOptions(source: Source.serverAndCache));
-      Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
-      UserModel user = UserModel.fromJson(userData!);
-      user.numberOfSessions = user.numberOfSessions! - int.parse(sessions);
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get(const GetOptions(source: Source.serverAndCache));
+    Map<String, dynamic>? userData =
+        userSnapshot.data() as Map<String, dynamic>?;
+    UserModel user = UserModel.fromJson(userData!);
+    user.numberOfSessions = user.numberOfSessions! - int.parse(sessions);
 
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      DocumentReference adminRef = FirebaseFirestore.instance.collection('admins').doc(FirebaseAuth.instance.currentUser?.uid);
-      DocumentReference datesRef = adminRef.collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
-      DocumentReference usersRef = FirebaseFirestore.instance.collection('users').doc(userId);
-      CollectionReference notificationsRef = adminRef.collection('notifications');
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+    DocumentReference adminRef = FirebaseFirestore.instance
+        .collection('admins')
+        .doc(FirebaseAuth.instance.currentUser?.uid);
+    DocumentReference datesRef = adminRef.collection('dates').doc(
+        '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
+    DocumentReference usersRef =
+        FirebaseFirestore.instance.collection('users').doc(userId);
+    CollectionReference notificationsRef = adminRef.collection('notifications');
 //if datesRef exists update it else create new document and add number of sessions to it
 //       datesRef.get().then((value) {
 //         if (value.exists) {
@@ -758,29 +753,34 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //           batch.set(datesRef, {'numberOfSessions': int.parse(sessions)});
 //         }
 //       });
-               batch.set(datesRef, {'setFlag': true}, SetOptions(merge: true));
-          batch.update(datesRef, {'numberOfAttendence': FieldValue.increment(int.parse(sessions))});
+    batch.set(datesRef, {'setFlag': true}, SetOptions(merge: true));
+    batch.update(datesRef,
+        {'numberOfAttendence': FieldValue.increment(int.parse(sessions))});
 
-    batch.update(usersRef, {'numberOfSessions': FieldValue.increment(-int.parse(sessions))});
-      batch.set(notificationsRef.doc(), {
-        'message': 'تم تخفيض عدد الجلسات للمستخدم $userName بعدد $sessions جلسة',
-        'timestamp': DateTime.now(),
-      });
+    batch.update(usersRef,
+        {'numberOfSessions': FieldValue.increment(-int.parse(sessions))});
+    batch.set(notificationsRef.doc(), {
+      'message': 'تم تخفيض عدد الجلسات للمستخدم $userName بعدد $sessions جلسة',
+      'timestamp': DateTime.now(),
+    });
 
-       batch.commit();
+    batch.commit();
 
-      showRollbackButton = true;
-      //5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
-        showRollbackButton = false;
-        emit(ReduceSessionsSuccessState());
-      });
+    showRollbackButton = true;
+    //5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      showRollbackButton = false;
       emit(ReduceSessionsSuccessState());
-      return;
-
+    });
+    emit(ReduceSessionsSuccessState());
+    return;
   }
 
-  addSessions(context, {String? userId, String? userName, required String sessions, required int NumberOfSessions}) async {
+  addSessions(context,
+      {String? userId,
+      String? userName,
+      required String sessions,
+      required int NumberOfSessions}) async {
     emit(AddSessionsLoadingState());
     currentNumberOfSessions = NumberOfSessions;
     latestUserId = userId;
@@ -788,41 +788,47 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 
     WriteBatch batch = FirebaseFirestore.instance.batch();
     // Update or create document in admins collection
-    DocumentReference adminDocRef = FirebaseFirestore.instance.collection('admins').doc(FirebaseAuth.instance.currentUser?.uid);
-    DocumentReference adminDateDocRef = adminDocRef.collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
+    DocumentReference adminDocRef = FirebaseFirestore.instance
+        .collection('admins')
+        .doc(FirebaseAuth.instance.currentUser?.uid);
+    DocumentReference adminDateDocRef = adminDocRef.collection('dates').doc(
+        '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
 
     // Update or create document in users collection
-    DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(userId);
+    DocumentReference userDocRef =
+        FirebaseFirestore.instance.collection('users').doc(userId);
 
-
-      DocumentSnapshot userSnapshot = await userDocRef.get(const GetOptions(source: Source.serverAndCache));
-      Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
-      UserModel user = UserModel.fromJson(userData!);
-      user.numberOfSessions = user.numberOfSessions! + int.parse(sessions);
-      batch.update(userDocRef, {'numberOfSessions': FieldValue.increment(int.parse(sessions))});
+    DocumentSnapshot userSnapshot =
+        await userDocRef.get(const GetOptions(source: Source.serverAndCache));
+    Map<String, dynamic>? userData =
+        userSnapshot.data() as Map<String, dynamic>?;
+    UserModel user = UserModel.fromJson(userData!);
+    user.numberOfSessions = user.numberOfSessions! + int.parse(sessions);
+    batch.update(userDocRef,
+        {'numberOfSessions': FieldValue.increment(int.parse(sessions))});
 //if datesRef exists update it else create new document and add number of sessions to it
 
-         batch.set(adminDateDocRef, {'setFlag': true}, SetOptions(merge: true));
-          batch.update(adminDateDocRef, {'numberOfSessions': FieldValue.increment(int.parse(sessions))});
-
+    batch.set(adminDateDocRef, {'setFlag': true}, SetOptions(merge: true));
+    batch.update(adminDateDocRef,
+        {'numberOfSessions': FieldValue.increment(int.parse(sessions))});
 
     // Add notification to admin
-    DocumentReference notificationDocRef = adminDocRef.collection('notifications').doc();
+    DocumentReference notificationDocRef =
+        adminDocRef.collection('notifications').doc();
     NotificationModel notification = NotificationModel(
       message: 'تم زيادة عدد الجلسات للمستخدم $userName بعدد $sessions جلسة',
       timestamp: DateTime.now(),
     );
     batch.set(notificationDocRef, notification.toMap());
-       batch.commit();
-      salaryController.clear();
+    batch.commit();
+    salaryController.clear();
+    emit(AddSessionsSuccessState());
+
+    showRollbackButton = true;
+    Future.delayed(const Duration(seconds: 5), () {
+      showRollbackButton = false;
       emit(AddSessionsSuccessState());
-
-      showRollbackButton = true;
-      Future.delayed(const Duration(seconds: 5), () {
-        showRollbackButton = false;
-        emit(AddSessionsSuccessState());
-      });
-
+    });
   }
 //todo sha8allaaaa
   //   addSessions(context, {String? userId,
@@ -1178,33 +1184,35 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     String? userName,
     int? userTotalSalary,
   }) async {
-      latestUserId = userId;
-      emit(PayAllSalaryLoadingState());
+    latestUserId = userId;
+    emit(PayAllSalaryLoadingState());
 //      bool isConnected = await checkInternetConnectivity();
-        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get(const GetOptions(source: Source.serverAndCache));
-        Map<String, dynamic>? userData =
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get(const GetOptions(source: Source.serverAndCache));
+    Map<String, dynamic>? userData =
         userSnapshot.data() as Map<String, dynamic>?;
-        UserModel user = UserModel.fromJson(userData!);
-        user.totalSalary = 0;
+    UserModel user = UserModel.fromJson(userData!);
+    user.totalSalary = 0;
 
-        WriteBatch batch = FirebaseFirestore.instance.batch();
+    WriteBatch batch = FirebaseFirestore.instance.batch();
 
-        DocumentReference dateDocumentRef = FirebaseFirestore.instance
-            .collection('admins')
-            .doc(FirebaseAuth.instance.currentUser?.uid)
-            .collection('dates')
-            .doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
+    DocumentReference dateDocumentRef = FirebaseFirestore.instance
+        .collection('admins')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .collection('dates')
+        .doc(
+            '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
 
-     //   batch.set(dateDocumentRef, {
-     //     'totalSalary': int.parse(userTotalSalary.toString()),
-     //   }, SetOptions(merge: true));
-        batch.set(dateDocumentRef, {'setFlag': true}, SetOptions(merge: true));
-        batch.update(dateDocumentRef, {
-          'totalSalary': FieldValue.increment(int.parse(userTotalSalary.toString())),
-        });
+    //   batch.set(dateDocumentRef, {
+    //     'totalSalary': int.parse(userTotalSalary.toString()),
+    //   }, SetOptions(merge: true));
+    batch.set(dateDocumentRef, {'setFlag': true}, SetOptions(merge: true));
+    batch.update(dateDocumentRef, {
+      'totalSalary':
+          FieldValue.increment(int.parse(userTotalSalary.toString())),
+    });
     batch.set(
       FirebaseFirestore.instance
           .collection('users')
@@ -1216,32 +1224,33 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
         'timestamp': DateTime.now(),
       },
     );
-        DocumentReference userDocumentRef =
+    DocumentReference userDocumentRef =
         FirebaseFirestore.instance.collection('users').doc(userId);
 
-        batch.update(userDocumentRef, {'totalSalary': 0});
-    batch.set(FirebaseFirestore.instance
-        .collection('admins')
-        .doc(FirebaseAuth.instance.currentUser!.uid)
-        .collection('notifications')
-        .doc(), {
-      'message': 'تم صرف المرتب كامل للمستخدم ${user.name} ',
-      'timestamp': DateTime.now(),
-    }, SetOptions(merge: true));
+    batch.update(userDocumentRef, {'totalSalary': 0});
+    batch.set(
+        FirebaseFirestore.instance
+            .collection('admins')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
+            .collection('notifications')
+            .doc(),
+        {
+          'message': 'تم صرف المرتب كامل للمستخدم ${user.name} ',
+          'timestamp': DateTime.now(),
+        },
+        SetOptions(merge: true));
 
-        batch.commit();
+    batch.commit();
 
-        showRollbackButton = true;
-        Timer(const Duration(seconds: 5), () {
-          showRollbackButton = false;
-          emit(ShowRollbackButtonState());
-        });
-        salaryController.clear();
-        emit(PaySalarySuccessStateWithoutInternet());
-        return;
+    showRollbackButton = true;
+    Timer(const Duration(seconds: 5), () {
+      showRollbackButton = false;
+      emit(ShowRollbackButtonState());
+    });
+    salaryController.clear();
+    emit(PaySalarySuccessStateWithoutInternet());
+    return;
   }
-
-
 
   //todo : pay salary
 //   Future<void> paySalary({
@@ -1419,8 +1428,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //       emit(PaySalaryErrorState(error.toString()));
 //     }
 //   }
-  Future<void> rollbackSalary(
-      ) async {
+  Future<void> rollbackSalary() async {
     try {
       bool isConnected = await checkInternetConnectivity();
       if (!isConnected) {
@@ -1448,17 +1456,17 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
         //        // Navigator.pop(context);
         //show toast message
         DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(latestUserId)
-                  .get(const GetOptions(source: Source.serverAndCache));
-              Map<String, dynamic>? userData = userSnapshot.data() as Map<String, dynamic>?;
-              UserModel user = UserModel.fromJson(userData!);
-              user.totalSalary = currentTotalSalary;
-               FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(latestUserId)
-                  .update({'totalSalary': currentTotalSalary});
-
+            .collection('users')
+            .doc(latestUserId)
+            .get(const GetOptions(source: Source.serverAndCache));
+        Map<String, dynamic>? userData =
+            userSnapshot.data() as Map<String, dynamic>?;
+        UserModel user = UserModel.fromJson(userData!);
+        user.totalSalary = currentTotalSalary;
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(latestUserId)
+            .update({'totalSalary': currentTotalSalary});
 
         showToast(
           state: ToastStates.SUCCESS,
@@ -1471,7 +1479,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 
       // emit(RollbackSalaryLoadingState());
 
-
       await FirebaseFirestore.instance
           .collection('users')
           .doc(latestUserId)
@@ -1483,15 +1490,14 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
           .get(const GetOptions(source: Source.server));
 
       Map<String, dynamic>? userData =
-      userSnapshot.data() as Map<String, dynamic>?;
+          userSnapshot.data() as Map<String, dynamic>?;
 
       UserModel updatedUser = UserModel.fromJson(userData!);
       updatedUser.totalSalary = currentTotalSalary;
-    //  int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
-    //  if (userIndex != -1) {
-    //    coaches[userIndex] = updatedUser;
-    //  }
-
+      //  int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
+      //  if (userIndex != -1) {
+      //    coaches[userIndex] = updatedUser;
+      //  }
 
       //   Map<String, dynamic>? userData =
       //       userSnapshot.data() as Map<String, dynamic>?;
@@ -1532,89 +1538,98 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   }
 
 //updateShowRollbackButton
-  Future<void> updateShowRollbackButton(
-      ) async {
+  Future<void> updateShowRollbackButton() async {
     emit(UpdateShowRollbackButtonLoadingState());
     showRollbackButton = false;
     emit(UpdateShowRollbackButtonSuccessState());
   }
+
   Future<void> payPartialSalary({
     String? userId,
     String? salaryPaid,
     String? userName,
     required int currentTotalSalary,
   }) async {
-      latestUserId = userId;
-      emit(PaySalaryLoadingState());
+    latestUserId = userId;
+    emit(PaySalaryLoadingState());
     //  bool isConnected = await checkInternetConnectivity();
 
-        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get(const GetOptions(source: Source.serverAndCache));
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get(const GetOptions(source: Source.serverAndCache));
 
-        Map<String, dynamic>? userData =
+    Map<String, dynamic>? userData =
         userSnapshot.data() as Map<String, dynamic>?;
-        UserModel user = UserModel.fromJson(userData!);
-        user.totalSalary = 0;
+    UserModel user = UserModel.fromJson(userData!);
+    user.totalSalary = 0;
 
-        WriteBatch batch = FirebaseFirestore.instance.batch();
+    WriteBatch batch = FirebaseFirestore.instance.batch();
 
-        DocumentReference userDocumentRef =
+    DocumentReference userDocumentRef =
         FirebaseFirestore.instance.collection('users').doc(userId);
 
-        batch.update(userDocumentRef, {
-          'totalSalary': FieldValue.increment(-int.parse(salaryPaid!)),
-        });
+    batch.update(userDocumentRef, {
+      'totalSalary': FieldValue.increment(-int.parse(salaryPaid!)),
+    });
 
-        DocumentReference dateDocumentRef = FirebaseFirestore.instance
-            .collection('admins')
-            .doc(FirebaseAuth.instance.currentUser?.uid)
-            .collection('dates')
-            .doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
-         batch.set(dateDocumentRef, {'setFlag': true}, SetOptions(merge: true));
-        batch.update(dateDocumentRef, {
-          'totalSalary': FieldValue.increment(int.parse(salaryPaid!)),
-        }, );
-           //       NotificationModel notification = NotificationModel(
-      //           message:
-      //           'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
-      //           timestamp: DateTime.now(),
-      //         );
-      //         FirebaseFirestore.instance
-      //             .collection('admins')
-      //             .doc(FirebaseAuth.instance.currentUser!.uid)
-      //             .collection('notifications')
-      //             .add(notification.toMap());
-      batch.set(FirebaseFirestore.instance
-          .collection('admins')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('notifications')
-          .doc(), {
-        'message': 'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
-        'timestamp': DateTime.now(),
-      }, SetOptions(merge: true));
-      batch.set(
+    DocumentReference dateDocumentRef = FirebaseFirestore.instance
+        .collection('admins')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .collection('dates')
+        .doc(
+            '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}');
+    batch.set(dateDocumentRef, {'setFlag': true}, SetOptions(merge: true));
+    batch.update(
+      dateDocumentRef,
+      {
+        'totalSalary': FieldValue.increment(int.parse(salaryPaid!)),
+      },
+    );
+    //       NotificationModel notification = NotificationModel(
+    //           message:
+    //           'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+    //           timestamp: DateTime.now(),
+    //         );
+    //         FirebaseFirestore.instance
+    //             .collection('admins')
+    //             .doc(FirebaseAuth.instance.currentUser!.uid)
+    //             .collection('notifications')
+    //             .add(notification.toMap());
+    batch.set(
         FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
+            .collection('admins')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
             .collection('notifications')
             .doc(),
         {
-          'message': 'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+          'message':
+              'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
           'timestamp': DateTime.now(),
         },
-      );
-         batch.commit();
-        showRollbackButton = true;
-        Timer(const Duration(seconds: 5), () {
-          showRollbackButton = false;
-          emit(ShowRollbackButtonState());
-        });
-        salaryController.clear();
-        emit(PaySalarySuccessStateWithoutInternet());
-        return;
-      }
+        SetOptions(merge: true));
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(),
+      {
+        'message':
+            'تم صرف المرتب للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+        'timestamp': DateTime.now(),
+      },
+    );
+    batch.commit();
+    showRollbackButton = true;
+    Timer(const Duration(seconds: 5), () {
+      showRollbackButton = false;
+      emit(ShowRollbackButtonState());
+    });
+    salaryController.clear();
+    emit(PaySalarySuccessStateWithoutInternet());
+    return;
+  }
 
   //todo : pay partial salary sha8al
 //   Future<void> payPartialSalary({String? userId, String? salaryPaid,
@@ -1792,77 +1807,78 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 //       emit(PaySalaryErrorState(error.toString()));
 //     }
 //   }
-  Future<void> payBonus({String? userId, String? salaryPaid,
-  required int TotalSalary
-  }) async {
-      latestUserId = userId;
-      currentTotalSalary = TotalSalary;
-      emit(PayBonusLoadingState());
-        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get(const GetOptions(source: Source.serverAndCache));
-        Map<String, dynamic>? userData =
+  Future<void> payBonus(
+      {String? userId, String? salaryPaid, required int TotalSalary}) async {
+    latestUserId = userId;
+    currentTotalSalary = TotalSalary;
+    emit(PayBonusLoadingState());
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get(const GetOptions(source: Source.serverAndCache));
+    Map<String, dynamic>? userData =
         userSnapshot.data() as Map<String, dynamic>?;
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-        UserModel user = UserModel.fromJson(userData!);
-        user.totalSalary = user.totalSalary! + int.parse(salaryPaid!);
-        // FirebaseFirestore.instance
-        //     .collection('users')
-        //     .doc(userId)
-        //     .update({'totalSalary': FieldValue.increment(int.parse(salaryPaid))});
-        //
-        // NotificationModel notification = NotificationModel(
-        //   message: 'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
-        //   timestamp: DateTime.now(),
-        // );
-        // FirebaseFirestore.instance
-        //     .collection('admins')
-        //     .doc(FirebaseAuth.instance.currentUser!.uid)
-        //     .collection('notifications')
-        //     .add(notification.toMap());
-      batch.set(FirebaseFirestore.instance
-          .collection('admins')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('notifications')
-          .doc(), {
-        'message': 'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
-        'timestamp': DateTime.now(),
-      }, SetOptions(merge: true));
-      batch.set(
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+    UserModel user = UserModel.fromJson(userData!);
+    user.totalSalary = user.totalSalary! + int.parse(salaryPaid!);
+    // FirebaseFirestore.instance
+    //     .collection('users')
+    //     .doc(userId)
+    //     .update({'totalSalary': FieldValue.increment(int.parse(salaryPaid))});
+    //
+    // NotificationModel notification = NotificationModel(
+    //   message: 'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+    //   timestamp: DateTime.now(),
+    // );
+    // FirebaseFirestore.instance
+    //     .collection('admins')
+    //     .doc(FirebaseAuth.instance.currentUser!.uid)
+    //     .collection('notifications')
+    //     .add(notification.toMap());
+    batch.set(
         FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
+            .collection('admins')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
             .collection('notifications')
             .doc(),
         {
-          'message': 'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+          'message':
+              'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
           'timestamp': DateTime.now(),
         },
-      );
-        batch.update(FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId), {'totalSalary': FieldValue.increment(int.parse(salaryPaid))});
-        batch.commit();
+        SetOptions(merge: true));
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(),
+      {
+        'message':
+            'تم صرف المكافأة للمستخدم ${user.name} بمبلغ ${salaryPaid} جنيه',
+        'timestamp': DateTime.now(),
+      },
+    );
+    batch.update(FirebaseFirestore.instance.collection('users').doc(userId),
+        {'totalSalary': FieldValue.increment(int.parse(salaryPaid))});
+    batch.commit();
 
-        salaryController.clear();
-      //  showToast(
-      //    state: ToastStates.SUCCESS,
-      //    msg: 'تم صرف المرتب بنجاح '
-      //        'سيتم تحديث البيانات عند توفر الإنترنت',
-      //  );
-        // Enable rollback button
-        showRollbackButton = true;
-        Timer(const Duration(seconds: 5), () {
-          showRollbackButton = false;
-          emit(ShowRollbackButtonState());
-        });
+    salaryController.clear();
+    //  showToast(
+    //    state: ToastStates.SUCCESS,
+    //    msg: 'تم صرف المرتب بنجاح '
+    //        'سيتم تحديث البيانات عند توفر الإنترنت',
+    //  );
+    // Enable rollback button
+    showRollbackButton = true;
+    Timer(const Duration(seconds: 5), () {
+      showRollbackButton = false;
+      emit(ShowRollbackButtonState());
+    });
 
-        emit(PaySalarySuccessStateWithoutInternet());
-        return;
-
-    }
-
+    emit(PaySalarySuccessStateWithoutInternet());
+    return;
+  }
 
   Future<void> rollbackPartialSalary() async {
     try {
@@ -1873,7 +1889,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
             .doc(latestUserId)
             .get(const GetOptions(source: Source.serverAndCache));
         Map<String, dynamic>? userData =
-        userSnapshot.data() as Map<String, dynamic>?;
+            userSnapshot.data() as Map<String, dynamic>?;
 
         UserModel user = UserModel.fromJson(userData!);
         user.totalSalary = currentTotalSalary;
@@ -1891,7 +1907,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
         return;
       }
 
-
       await FirebaseFirestore.instance
           .collection('users')
           .doc(latestUserId)
@@ -1903,14 +1918,14 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
           .get(const GetOptions(source: Source.server));
 
       Map<String, dynamic>? userData =
-      userSnapshot.data() as Map<String, dynamic>?;
+          userSnapshot.data() as Map<String, dynamic>?;
 
       UserModel updatedUser = UserModel.fromJson(userData!);
       updatedUser.totalSalary = currentTotalSalary;
-    //  int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
-    //  if (userIndex != -1) {
-   //     coaches[userIndex] = updatedUser;
-   //   }
+      //  int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
+      //  if (userIndex != -1) {
+      //     coaches[userIndex] = updatedUser;
+      //   }
 
       showToast(
         state: ToastStates.SUCCESS,
@@ -1923,7 +1938,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     }
   }
 
-  Future<void>rollbackSession() async {
+  Future<void> rollbackSession() async {
     try {
       bool isConnected = await checkInternetConnectivity();
       if (!isConnected) {
@@ -1932,7 +1947,7 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
             .doc(latestUserId)
             .get(const GetOptions(source: Source.serverAndCache));
         Map<String, dynamic>? userData =
-        userSnapshot.data() as Map<String, dynamic>?;
+            userSnapshot.data() as Map<String, dynamic>?;
 
         UserModel user = UserModel.fromJson(userData!);
         user.numberOfSessions = currentNumberOfSessions;
@@ -1960,11 +1975,11 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
           .get(const GetOptions(source: Source.server));
 
       Map<String, dynamic>? userData =
-      userSnapshot.data() as Map<String, dynamic>?;
+          userSnapshot.data() as Map<String, dynamic>?;
 
       UserModel updatedUser = UserModel.fromJson(userData!);
       updatedUser.numberOfSessions = currentNumberOfSessions;
- //     int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
+      //     int userIndex = coaches.indexWhere((user) => user.uId == latestUserId);
 //      if (userIndex != -1) {
 //        coaches[userIndex] = updatedUser;
 //      }
@@ -1973,11 +1988,10 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
         state: ToastStates.SUCCESS,
         msg: 'تم التراجع عن العملية',
       );
-    } catch (error) {
-    }
+    } catch (error) {}
   }
-  Future<void> updateShowRollbackButtonSession(
-      ) async {
+
+  Future<void> updateShowRollbackButtonSession() async {
     emit(UpdateShowRollbackButtonLoadingState());
     showRollbackButton = false;
     emit(UpdateShowRollbackButtonSuccessState());
@@ -1987,11 +2001,11 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
   void changeSelectedBranchIndex(int index) {
     selectedBranchIndex = index;
     emit(ChangeSelectedBranchIndexState(
-   //   selectedBranchIndex,
-    ));
+        //   selectedBranchIndex,
+        ));
   }
 
-   //getBranches() {}
+  //getBranches() {}
   List<BranchModel> branches = [];
   Future<void> getBranches() async {
     //print all branches now in loop
@@ -2011,7 +2025,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     });
   }
 
-
   void deleteGroup({
     required String groupId,
     required String branchId,
@@ -2019,10 +2032,10 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
     required List<String> schedulesDays,
     context,
   }) async {
-   // bool isConnected = checkInternetConnectivity();
+    // bool isConnected = checkInternetConnectivity();
     emit(DeleteGroupLoadingState());
- //debug parameters
-     //if (!isConnected) {
+    //debug parameters
+    //if (!isConnected) {
     //   FirebaseFirestore.instance
     //       .collection('branches')
     //       .doc(branchId)
@@ -2050,7 +2063,6 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
           .doc(schedulesDays[i])
           .collection('schedules')
           .doc(schedulesIds[i]);
-
 
       // Delete the subcollection of users inside the schedule
       CollectionReference usersRef = scheduleRef.collection('users');
@@ -2082,21 +2094,19 @@ class ManageUsersCubit extends Cubit<ManageUsersState> {
 
     batch.delete(groupRef);
 
- //   try {
-      // Commit the batch operation
-       batch.commit();
+    //   try {
+    // Commit the batch operation
+    batch.commit();
 
-
-      // Show toast message
-     // showToast(
+    // Show toast message
+    // showToast(
     //    state: ToastStates.SUCCESS,
-   //     msg: //'Group deleted', in arabic
-   //     'تم حذف المجموعة',
-   //   );
-      //pop
+    //     msg: //'Group deleted', in arabic
+    //     'تم حذف المجموعة',
+    //   );
+    //pop
     emit(DeleteGroupSuccessState());
     Navigator.pop(context);
-
 
     //}
     // catch (error) {

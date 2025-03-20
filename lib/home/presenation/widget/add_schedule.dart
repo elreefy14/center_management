@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:admin_future/core/utils/toast_helper.dart';
 
 //import 'package:multiselect/multiselect.dart';
 import '../../../registeration/data/userModel.dart';
@@ -17,11 +17,10 @@ import 'widget/multi_select.dart';
 import '../../business_logic/Home/manage_attendence_state.dart';
 
 class AddSchedule extends StatefulWidget {
-
   final bool? toggle;
   final Timestamp? startTime;
   final Timestamp? endTime;
-  final String ?date;
+  final String? date;
   //scheduleId
   final String? scheduleId;
   final List<String>? usersList;
@@ -56,8 +55,6 @@ class _AddScheduleState extends State<AddSchedule> {
   late List<UserModel>? selectedUsers;
   late List<String> results;
 
-
-
   // void updateSelectedBranch(String branch) {
   //   setState(() {
   //     selectedBranch = branch;
@@ -66,20 +63,18 @@ class _AddScheduleState extends State<AddSchedule> {
 
   @override
   Widget build(BuildContext context) {
-    late var startTime ;
-    late var endTime ;
+    late var startTime;
+    late var endTime;
 
-    bool isAddScreen = widget.toggle??true;
+    bool isAddScreen = widget.toggle ?? true;
     if (isAddScreen == false) {
-      print('selectedBranch: ${ManageAttendenceCubit.get(context).selectedBranch}');
+      print(
+          'selectedBranch: ${ManageAttendenceCubit.get(context).selectedBranch}');
       ManageAttendenceCubit.get(context).updateSelectedBranch(
-          ManageAttendenceCubit.get(context).selectedBranch ?? ''
-      );
+          ManageAttendenceCubit.get(context).selectedBranch ?? '');
       startTime = widget.startTime;
       endTime = widget.endTime;
-
-    }
-    else {
+    } else {
       ManageAttendenceCubit.get(context).updateSelectedBranch('');
       startTime = ManageAttendenceCubit.get(context).startTime;
       endTime = ManageAttendenceCubit.get(context).endTime;
@@ -94,55 +89,48 @@ class _AddScheduleState extends State<AddSchedule> {
 
     void _showMultiSelect({
       required List<String> list,
-
     }) async {
       results = (await showDialog<List<String>>(
         context: context,
         builder: (BuildContext context) {
           return MultiSelectUserNames(
-            items: ManageAttendenceCubit.get(context).MyUsersNames??[],
-
+            items: ManageAttendenceCubit.get(context).MyUsersNames ?? [],
           );
         },
       ))!;
 
       // Handle results if needed
-      if (results != null) {
-      }
-    }   void _showMultiSelect2({
-      required List<String> list,
+      if (results != null) {}
+    }
 
+    void _showMultiSelect2({
+      required List<String> list,
     }) async {
       results = (await showDialog<List<String>>(
         context: context,
         builder: (BuildContext context) {
           return MultiSelectDays(
             items2: list,
-
           );
         },
       ))!;
 
       // Handle results if needed
-      if (results != null) {
-      }
+      if (results != null) {}
     }
-    return Scaffold(
 
+    return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(15.0),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child:
-          Column(
+          child: Column(
             children: [
               //60.h
               SizedBox(height: 70.0.h),
               Center(
                 child: Text(
-                  isAddScreen == false ?
-                  'تعديل موعد'
-                      : 'اضافة موعد',
+                  isAddScreen == false ? 'تعديل موعد' : 'اضافة موعد',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF333333),
@@ -160,17 +148,17 @@ class _AddScheduleState extends State<AddSchedule> {
                   Flexible(
                     flex: 5,
                     child: Container(
-                      // RoundedRectangleBorder(
-                      // side: BorderSide(
-                      // width: 0.75,
-                      // strokeAlign: BorderSide.strokeAlignOutside,
-                      // color: Color(0xFF2196F3),
-                      // ),
-                      // borderRadius: BorderRadius.circular(4),
-                      // ),
+                        // RoundedRectangleBorder(
+                        // side: BorderSide(
+                        // width: 0.75,
+                        // strokeAlign: BorderSide.strokeAlignOutside,
+                        // color: Color(0xFF2196F3),
+                        // ),
+                        // borderRadius: BorderRadius.circular(4),
+                        // ),
                         decoration: BoxDecoration(
                           color: //#F4F4F4
-                          const Color(0xFFF4F4F4),
+                              const Color(0xFFF4F4F4),
                           border: Border.all(
                             color: const Color(0xFF2196F3),
                             width: 0.75,
@@ -185,17 +173,18 @@ class _AddScheduleState extends State<AddSchedule> {
 
                         child: Row(
                           children: [
-                            const Icon(Icons.keyboard_arrow_down_outlined,
+                            const Icon(
+                              Icons.keyboard_arrow_down_outlined,
                               size: 35,
                             ),
                             SizedBox(width: 5.w),
-
                             InkWell(
                               onTap: () {
                                 _showMultiSelect(
-                                  list: ManageAttendenceCubit.get(context).MyUsersNames??[],
+                                  list: ManageAttendenceCubit.get(context)
+                                          .MyUsersNames ??
+                                      [],
                                 );
-
                               },
                               child: const SizedBox(
                                 width: 171,
@@ -212,10 +201,8 @@ class _AddScheduleState extends State<AddSchedule> {
                                 ),
                               ),
                             ),
-
                           ],
-                        )
-                    ),
+                        )),
                   ),
                   //5
                   SizedBox(width: 5.w),
@@ -238,21 +225,18 @@ class _AddScheduleState extends State<AddSchedule> {
               GestureDetector(
                 onTap: () {
                   DatePicker.showDatePicker(
-
                     context,
                     showTitleActions: true,
                     minTime: DateTime(2023, 3, 5),
                     maxTime: DateTime(2030, 6, 7),
                     onChanged: (date) {
                       print('change $date');
-
                     },
                     onConfirm: (date) {
                       if (kDebugMode) {
                         print('confirm $date');
                       }
                       dayOfWeek = date.toString();
-
                     },
                     currentTime: DateTime.now(),
                     locale: LocaleType.en,
@@ -264,18 +248,15 @@ class _AddScheduleState extends State<AddSchedule> {
                     SizedBox(width: 9.w),
                     InkWell(
                       onTap: () {
-                        _showMultiSelect2(
-                            list : [
-                              'السبت',
-                              'الأحد',
-                              'الاثنين',
-                              'الثلاثاء',
-                              'الأربعاء',
-                              'الخميس',
-                              'الجمعة',
-
-                            ]
-                        );
+                        _showMultiSelect2(list: [
+                          'السبت',
+                          'الأحد',
+                          'الاثنين',
+                          'الثلاثاء',
+                          'الأربعاء',
+                          'الخميس',
+                          'الجمعة',
+                        ]);
                       },
                       child: Flexible(
                         flex: 3,
@@ -330,7 +311,8 @@ class _AddScheduleState extends State<AddSchedule> {
                     ),
                   ],
                 ),
-              ), SizedBox(height: 20.0.h),
+              ),
+              SizedBox(height: 20.0.h),
               GestureDetector(
                 onTap: () {
                   showTimePicker(
@@ -340,17 +322,21 @@ class _AddScheduleState extends State<AddSchedule> {
                     if (selectedTime != null) {
                       // Convert selected time to DateTime object
                       final now = DateTime.now();
-                      final selectedDateTime = DateTime(now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
+                      final selectedDateTime = DateTime(now.year, now.month,
+                          now.day, selectedTime.hour, selectedTime.minute);
 
                       // Save selected time as timestamp
                       // setState(() {
                       //   startTime = Timestamp.fromMillisecondsSinceEpoch(selectedDateTime.millisecondsSinceEpoch);
                       //   print('startTime: $startTime');
                       // });
-                      ManageAttendenceCubit.get(context).updateStartTime(Timestamp.fromMillisecondsSinceEpoch(selectedDateTime.millisecondsSinceEpoch));
+                      ManageAttendenceCubit.get(context).updateStartTime(
+                          Timestamp.fromMillisecondsSinceEpoch(
+                              selectedDateTime.millisecondsSinceEpoch));
 
                       // Handle the selected time
-                      final formattedTime = selectedTime.format(context); // Format the selected time as needed
+                      final formattedTime = selectedTime.format(
+                          context); // Format the selected time as needed
                       print('Selected time: $formattedTime');
                     }
                   });
@@ -378,7 +364,8 @@ class _AddScheduleState extends State<AddSchedule> {
                               size: 25,
                             ),
                             SizedBox(width: 5.w),
-                            BlocBuilder<ManageAttendenceCubit, ManageAttendenceState>(
+                            BlocBuilder<ManageAttendenceCubit,
+                                ManageAttendenceState>(
                               builder: (context, state) {
                                 return SizedBox(
                                   width: 86,
@@ -424,17 +411,20 @@ class _AddScheduleState extends State<AddSchedule> {
                     if (selectedTime != null) {
                       // Convert selected time to DateTime object
                       final now = DateTime.now();
-                      final selectedDateTime = DateTime(now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
+                      final selectedDateTime = DateTime(now.year, now.month,
+                          now.day, selectedTime.hour, selectedTime.minute);
 
                       // Save selected time as timestamp
                       // setState(() {
                       //   endTime = Timestamp.fromMillisecondsSinceEpoch(selectedDateTime.millisecondsSinceEpoch);
                       // });
-                      ManageAttendenceCubit.get(context).updateEndTime(Timestamp.fromMillisecondsSinceEpoch(selectedDateTime.millisecondsSinceEpoch));
-
+                      ManageAttendenceCubit.get(context).updateEndTime(
+                          Timestamp.fromMillisecondsSinceEpoch(
+                              selectedDateTime.millisecondsSinceEpoch));
 
                       // Handle the selected time
-                      final formattedTime = selectedTime.format(context); // Format the selected time as needed
+                      final formattedTime = selectedTime.format(
+                          context); // Format the selected time as needed
                       print('Selected time: $formattedTime');
                       print('endTime: $endTime');
                     }
@@ -463,14 +453,13 @@ class _AddScheduleState extends State<AddSchedule> {
                               size: 25,
                             ),
                             SizedBox(width: 5.w),
-                            BlocBuilder<ManageAttendenceCubit, ManageAttendenceState>(
+                            BlocBuilder<ManageAttendenceCubit,
+                                ManageAttendenceState>(
                               builder: (context, state) {
                                 return SizedBox(
                                   width: 86,
                                   child: Text(
-                                    '${ManageAttendenceCubit.get(context).endTime
-                                        != null ?
-                                    (ManageAttendenceCubit.get(context).endTime  !.toDate().hour > 12 ? ManageAttendenceCubit.get(context).endTime  !.toDate().hour - 12 : ManageAttendenceCubit.get(context).endTime  !.toDate().hour) : 11}:${ManageAttendenceCubit.get(context).endTime  ?.toDate().minute.toString().padLeft(2, '0')}${ManageAttendenceCubit.get(context).endTime   != null ? (ManageAttendenceCubit.get(context).endTime  !.toDate().hour >= 12 ? 'م' : 'ص') : 'ص'}',
+                                    '${ManageAttendenceCubit.get(context).endTime != null ? (ManageAttendenceCubit.get(context).endTime!.toDate().hour > 12 ? ManageAttendenceCubit.get(context).endTime!.toDate().hour - 12 : ManageAttendenceCubit.get(context).endTime!.toDate().hour) : 11}:${ManageAttendenceCubit.get(context).endTime?.toDate().minute.toString().padLeft(2, '0')}${ManageAttendenceCubit.get(context).endTime != null ? (ManageAttendenceCubit.get(context).endTime!.toDate().hour >= 12 ? 'م' : 'ص') : 'ص'}',
                                     textAlign: TextAlign.right,
                                     style: TextStyle(
                                       color: Colors.black,
@@ -523,44 +512,47 @@ class _AddScheduleState extends State<AddSchedule> {
                 builder: (context, state) {
                   return ManageAttendenceCubit.get(context).branches == null
                       ? const Center(child: CircularProgressIndicator())
-                      :
-                  Container(
-                    // height: 200.h,
-                    child: CheckboxListWidget(
-
-                      onBranchSelected: (branch) {
-                        // setState(() {
-                        //   print('selected branch: $branch');
-                        //   selectedBranch = branch;
-                        // });
-                        ManageAttendenceCubit.get(context).updateSelectedBranch(branch);
-                      },
-                      items: ManageAttendenceCubit.get(context).
-                      branches ?? [],
-                    ),
-                  );
+                      : Container(
+                          // height: 200.h,
+                          child: CheckboxListWidget(
+                            onBranchSelected: (branch) {
+                              // setState(() {
+                              //   print('selected branch: $branch');
+                              //   selectedBranch = branch;
+                              // });
+                              ManageAttendenceCubit.get(context)
+                                  .updateSelectedBranch(branch);
+                            },
+                            items:
+                                ManageAttendenceCubit.get(context).branches ??
+                                    [],
+                          ),
+                        );
                 },
               ),
               SizedBox(height: 20.0.h),
 
               BlocBuilder<ManageAttendenceCubit, ManageAttendenceState>(
                 builder: (context, state) {
-                  if (state is AddScheduleLoadingState || state is AddScheduleSuccessState) {
+                  if (state is AddScheduleLoadingState ||
+                      state is AddScheduleSuccessState) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   return FFButtonWidget(
-                    text: isAddScreen == false
-                        ? 'حفظ التعديلات'
-                        : 'اضافة موعد',
+                    text: isAddScreen == false ? 'حفظ التعديلات' : 'اضافة موعد',
                     onPressed: () async {
                       if (isAddScreen == false) {
                         await ManageAttendenceCubit.get(context).updateSchedule(
                           date: date!,
-                          usersIds:usersIds,
+                          usersIds: usersIds,
                           context: context,
-                          startTrainingTime: ManageAttendenceCubit.get(context).startTime!,
-                          endTrainingTime: ManageAttendenceCubit.get(context).endTime!,
-                          branch: ManageAttendenceCubit.get(context).selectedBranch ?? '',
+                          startTrainingTime:
+                              ManageAttendenceCubit.get(context).startTime!,
+                          endTrainingTime:
+                              ManageAttendenceCubit.get(context).endTime!,
+                          branch: ManageAttendenceCubit.get(context)
+                                  .selectedBranch ??
+                              '',
                           scheduleId: widget.scheduleId!,
                         );
                         // if (state is AddScheduleSuccessState) {
@@ -632,14 +624,12 @@ class _AddScheduleState extends State<AddSchedule> {
               ),
             ],
           ),
-
         ),
       ),
       // bottomNavigationBar:
     );
   }
 }
-
 
 class CheckboxListWidget extends StatefulWidget {
   final List<String> items;
@@ -658,8 +648,10 @@ class _CheckboxListWidgetState extends State<CheckboxListWidget> {
   void initState() {
     super.initState();
     // Initialize the checkedItem to the index of the selected branch
-    if (widget.items.contains(ManageAttendenceCubit.get(context).selectedBranch)) {
-      checkedItem = widget.items.indexOf(ManageAttendenceCubit.get(context).selectedBranch!);
+    if (widget.items
+        .contains(ManageAttendenceCubit.get(context).selectedBranch)) {
+      checkedItem = widget.items
+          .indexOf(ManageAttendenceCubit.get(context).selectedBranch!);
     } else {
       checkedItem = null;
     }
@@ -677,7 +669,7 @@ class _CheckboxListWidgetState extends State<CheckboxListWidget> {
           //height between each item in the list =5
           //  contentPadding: const EdgeInsets.symmetric(vertical: 0),
           title: //Text(widget.items[index]),
-          Text(
+              Text(
             widget.items[index],
             textAlign: TextAlign.right,
             style: TextStyle(

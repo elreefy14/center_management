@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:admin_future/registeration/presenation/widget/component.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,6 +17,7 @@ import 'dart:ui' as ui;
 import '../../home/presenation/widget/widget/custom_app_bar.dart';
 import '../../registeration/business_logic/auth_cubit/sign_up_cubit.dart';
 import '../../registeration/business_logic/auth_cubit/sign_up_state.dart';
+
 class BarcodeData {
   final String uid;
   final String name;
@@ -45,7 +44,6 @@ class BarcodeData {
     }
   }
 }
-
 
 class AddCoachScreen extends StatefulWidget {
   final bool isCoach;
@@ -111,7 +109,7 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
     await Future.delayed(const Duration(milliseconds: 100));
 
     final RenderRepaintBoundary boundary =
-    globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -135,17 +133,14 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
   }) async {
     try {
       if (kIsWeb) {
-        final barcodeImage = await generateBarcodeImage(uId, name);
-        final bytes = await barcodeImage.readAsBytes();
-        final blob = html.Blob([bytes]);
-        final url = html.Url.createObjectUrlFromBlob(blob);
-
-        final anchor = html.AnchorElement()
-          ..href = url
-          ..download = 'barcode_$uId.png'
-          ..click();
-
-        html.Url.revokeObjectUrl(url);
+        // Web barcode generation not supported in mobile build
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Barcode download is only available on mobile platforms'),
+            duration: Duration(seconds: 3),
+          ),
+        );
         return;
       }
 
@@ -172,11 +167,13 @@ class _AddCoachScreenState extends State<AddCoachScreen> {
       );
     }
   }
+
   // Modify the existing onPressed handler in the ElevatedButton
   Future<void> handleRegistration() async {
     if (SignUpCubit.get(context).formKey.currentState!.validate()) {
       String? newUid;
-String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}';
+      String name =
+          '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubit.get(context).lastNameController.text}';
 
       newUid = await SignUpCubit.get(context).addUser(
         role: 'user',
@@ -188,9 +185,11 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
         hourlyRate: '30',
         teachers: [],
         lastPaymentNote: '', // Added empty string as default
-        parentPhone: SignUpCubit.get(context).parentPhoneController.text.trim(), // Using parent phone controller
+        parentPhone: SignUpCubit.get(context)
+            .parentPhoneController
+            .text
+            .trim(), // Using parent phone controller
         studentCode: null, // Added null as default
-
       );
 
       if (newUid != null && context.read<SignUpCubit>().shouldSendWhatsApp) {
@@ -203,7 +202,8 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
     }
   }
 
-  Future<void> _generateAndShareBarcode(String studentId, String studentName) async {
+  Future<void> _generateAndShareBarcode(
+      String studentId, String studentName) async {
     try {
       // Create a GlobalKey to get the barcode widget's render box
       final GlobalKey globalKey = GlobalKey();
@@ -307,275 +307,277 @@ String name = '${SignUpCubit.get(context).firstNameController.text} ${SignUpCubi
   Widget build(BuildContext context) {
     return BlocBuilder<SignUpCubit, SignUpState>(builder: (context, state) {
       return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: const CustomAppBar(
-            text: '',
-          ),
-          body: ListView(
-              children: [
-              SizedBox(height: 12.h),
-          Padding(
-            padding: EdgeInsets.only(top: 32.0.h),
-            child: Center(
-              child: Container(
-                alignment: Alignment.center,
-                child: widget.isCoach
-                    ? Text(
-                  'اضافة طالب',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF333333),
-                    fontSize: 32.sp,
-                    fontFamily: 'Montserrat-Arabic',
-                    fontWeight: FontWeight.w400,
-                    height: 0.03.h,
-                  ),
-                )
-                    : Text(
-                  'اضافة متدرب',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF333333),
-                    fontSize: 32.sp,
-                    fontFamily: 'Montserrat-Arabic',
-                    fontWeight: FontWeight.w400,
-                    height: 0.03.h,
-                  ),
+        backgroundColor: Colors.white,
+        appBar: const CustomAppBar(
+          text: '',
+        ),
+        body: ListView(
+          children: [
+            SizedBox(height: 12.h),
+            Padding(
+              padding: EdgeInsets.only(top: 32.0.h),
+              child: Center(
+                child: Container(
+                  alignment: Alignment.center,
+                  child: widget.isCoach
+                      ? Text(
+                          'اضافة طالب',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFF333333),
+                            fontSize: 32.sp,
+                            fontFamily: 'Montserrat-Arabic',
+                            fontWeight: FontWeight.w400,
+                            height: 0.03.h,
+                          ),
+                        )
+                      : Text(
+                          'اضافة متدرب',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFF333333),
+                            fontSize: 32.sp,
+                            fontFamily: 'Montserrat-Arabic',
+                            fontWeight: FontWeight.w400,
+                            height: 0.03.h,
+                          ),
+                        ),
                 ),
               ),
             ),
-          ),
-          SizedBox(height: 50.0.h),
-          Form(
+            SizedBox(height: 50.0.h),
+            Form(
               key: SignUpCubit.get(context).formKey,
               child: Directionality(
                 textDirection: TextDirection.rtl,
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                child: BuildTextFormField2(
-                  context: context,
-                  'الاسم الاول',
-                  SignUpCubit.get(context).firstNameController,
-                  TextInputType.name,
-                  'ادخل الاسم الاول',
-                      (value) {
-                    if (value!.isEmpty) {
-                      return ' الرجاء ادخال الاسم الاول';
-                    }
-                    return null;
-                  },
-                  Icons.person,
-                ),
-              ),
-              SizedBox(height: 20.0.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                child: BuildTextFormField2(
-                  'الاسم الاخير',
-                  SignUpCubit.get(context).lastNameController,
-                  TextInputType.name,
-                  'ادخل الاسم الاخير',
-                      (value) {
-                    if (value!.isEmpty) {
-                      return 'الرجاء ادخال الاسم الاخير';
-                    }
-                    return null;
-                  },
-                  Icons.person,
-                ),
-              ),     SizedBox(height: 20.0.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                child: BuildTextFormField2(
-                  'كود المجموعه',
-                  SignUpCubit.get(context).groupCode,
-                  TextInputType.name,
-                  'كود المجموعه',
-                      (value) {
-                    if (value!.isEmpty) {
-                      return 'الرجاء ادخال الاسم الاخير';
-                    }
-                    return null;
-                  },
-                  Icons.person,
-                ),
-              ),
-              const SizedBox(height: 20.0),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                child: BuildTextFormField2(
-                  'رقم الهاتف',
-                  SignUpCubit.get(context).phoneController,
-                  TextInputType.phone,
-                  'ادخل رقم الهاتف',
-                      (value) {
-                    if (value!.isEmpty) {
-                      return 'الرجاء ادخال رقم الهاتف';
-                    }
-                    return null;
-                  },
-                  Icons.phone,
-                ),
-              ),
-                      const SizedBox(height: 20.0),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                child: BuildTextFormField2(
-                  'رقم هاتف ولي الامى ',
-                  SignUpCubit.get(context).parentPhoneController,
-                  TextInputType.phone,
-                  'ادخل رقم الهاتف',
-                      (value) {
-                    if (value!.isEmpty) {
-                      return 'الرجاء ادخال رقم الهاتف';
-                    }
-                    return null;
-                  },
-                  Icons.phone,
-                ),
-              ),
-              SizedBox(height: 20.0.h),
-              if (widget.isCoach)
-          Padding(
-      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-    child: BuildTextFormField2(
-    'كلمة المرور',
-    SignUpCubit.get(context).passwordController,
-    TextInputType.text,
-    'ادخل كلمة المرور',
-    (value) {
-    if (value!.isEmpty) {
-    return 'الرجاء ادخال كلمة المرور';
-    } else if (value.length < 6) {
-    return 'يجب ادخال كلمة مرور اكثر من ٦ أحرف او ارقام';
-    }
-    return null;
-    },
-    Icons.lock,
-    context: context,
-    ),
-    ),
-    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
-    if (selectedTeachers.isNotEmpty)
-    Padding(
-    padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-    child: ListView.separated(
-    physics: const NeverScrollableScrollPhysics(),
-    separatorBuilder: (context, index) => SizedBox(
-    height: 15.h,
-    ),
-    shrinkWrap: true,
-    itemCount: selectedTeachers.length,
-    itemBuilder: (context, index) {
-    var teacher = selectedTeachers[index];
-    return Container(
-    width: 360.w,
-    height: 25.h,
-    padding: EdgeInsets.symmetric(horizontal: 15.w),
-    child: Row(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.end,
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-    Container(
-    width: 25.w,
-    height: 25.h,
-    clipBehavior: Clip.antiAlias,
-    decoration: const BoxDecoration(),
-    child: InkWell(
-    onTap: () {
-    setState(() {
-    selectedTeachers.remove(teacher);
-    });
-    },
-    child: SvgPicture.asset(
-    'assets/images/delete-2_svgrepo.com.svg'),
-    ),
-    ),
-    Expanded(
-    child: Container(
-    height: double.infinity,
-    child: Row(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.end,
-    crossAxisAlignment:
-    CrossAxisAlignment.center,
-    children: [
-    Text(
-    '${index + 1} - $teacher',
-    textAlign: TextAlign.right,
-    style: TextStyle(
-    color: Colors.black,
-    fontSize: 14.sp,
-    fontFamily: 'Montserrat-Arabic',
-    fontWeight: FontWeight.w400,
-    height: 0,
-    ),
-    ),
-    ],
-    ),
-    ),
-    ),
-    ],
-    ),
-    );
-    },
-    ),
-    ),
-    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
-    SizedBox(height: 20.0.h),
-    Padding(
-    padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-    child: ElevatedButton(
-    onPressed: () async {
-      handleRegistration();
-    },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2196F3),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 9),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        textStyle: const TextStyle(fontSize: 18),
-      ),
-      child: const Text(
-        'تسجيل حساب جديد',
-        style: TextStyle(
-          color: Colors.white,
-        ),
-      ),
-     ),
-    ),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: BuildTextFormField2(
+                        context: context,
+                        'الاسم الاول',
+                        SignUpCubit.get(context).firstNameController,
+                        TextInputType.name,
+                        'ادخل الاسم الاول',
+                        (value) {
+                          if (value!.isEmpty) {
+                            return ' الرجاء ادخال الاسم الاول';
+                          }
+                          return null;
+                        },
+                        Icons.person,
+                      ),
+                    ),
+                    SizedBox(height: 20.0.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: BuildTextFormField2(
+                        'الاسم الاخير',
+                        SignUpCubit.get(context).lastNameController,
+                        TextInputType.name,
+                        'ادخل الاسم الاخير',
+                        (value) {
+                          if (value!.isEmpty) {
+                            return 'الرجاء ادخال الاسم الاخير';
+                          }
+                          return null;
+                        },
+                        Icons.person,
+                      ),
+                    ),
+                    SizedBox(height: 20.0.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: BuildTextFormField2(
+                        'كود المجموعه',
+                        SignUpCubit.get(context).groupCode,
+                        TextInputType.name,
+                        'كود المجموعه',
+                        (value) {
+                          if (value!.isEmpty) {
+                            return 'الرجاء ادخال الاسم الاخير';
+                          }
+                          return null;
+                        },
+                        Icons.person,
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: BuildTextFormField2(
+                        'رقم الهاتف',
+                        SignUpCubit.get(context).phoneController,
+                        TextInputType.phone,
+                        'ادخل رقم الهاتف',
+                        (value) {
+                          if (value!.isEmpty) {
+                            return 'الرجاء ادخال رقم الهاتف';
+                          }
+                          return null;
+                        },
+                        Icons.phone,
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: BuildTextFormField2(
+                        'رقم هاتف ولي الامى ',
+                        SignUpCubit.get(context).parentPhoneController,
+                        TextInputType.phone,
+                        'ادخل رقم الهاتف',
+                        (value) {
+                          if (value!.isEmpty) {
+                            return 'الرجاء ادخال رقم الهاتف';
+                          }
+                          return null;
+                        },
+                        Icons.phone,
+                      ),
+                    ),
+                    SizedBox(height: 20.0.h),
+                    if (widget.isCoach)
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 35.0.w),
-                        child: CheckboxListTile(
-                          value: context.read<SignUpCubit>().shouldSendWhatsApp,
-                          onChanged: (value) {
-                            setState(() {
-                              context.read<SignUpCubit>().shouldSendWhatsApp =
-                              value!;
-                            });
+                        child: BuildTextFormField2(
+                          'كلمة المرور',
+                          SignUpCubit.get(context).passwordController,
+                          TextInputType.text,
+                          'ادخل كلمة المرور',
+                          (value) {
+                            if (value!.isEmpty) {
+                              return 'الرجاء ادخال كلمة المرور';
+                            } else if (value.length < 6) {
+                              return 'يجب ادخال كلمة مرور اكثر من ٦ أحرف او ارقام';
+                            }
+                            return null;
                           },
-                          title: Text(
-                            'الحصول علي الصورة',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              fontFamily: 'IBM Plex Sans Arabic',
-                            ),
+                          Icons.lock,
+                          context: context,
+                        ),
+                      ),
+                    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
+                    if (selectedTeachers.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                        child: ListView.separated(
+                          physics: const NeverScrollableScrollPhysics(),
+                          separatorBuilder: (context, index) => SizedBox(
+                            height: 15.h,
+                          ),
+                          shrinkWrap: true,
+                          itemCount: selectedTeachers.length,
+                          itemBuilder: (context, index) {
+                            var teacher = selectedTeachers[index];
+                            return Container(
+                              width: 360.w,
+                              height: 25.h,
+                              padding: EdgeInsets.symmetric(horizontal: 15.w),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 25.w,
+                                    height: 25.h,
+                                    clipBehavior: Clip.antiAlias,
+                                    decoration: const BoxDecoration(),
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          selectedTeachers.remove(teacher);
+                                        });
+                                      },
+                                      child: SvgPicture.asset(
+                                          'assets/images/delete-2_svgrepo.com.svg'),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: double.infinity,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            '${index + 1} - $teacher',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 14.sp,
+                                              fontFamily: 'Montserrat-Arabic',
+                                              fontWeight: FontWeight.w400,
+                                              height: 0,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    if (selectedTeachers.isNotEmpty) SizedBox(height: 20.0.h),
+                    SizedBox(height: 20.0.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          handleRegistration();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2196F3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 9),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(fontSize: 18),
+                        ),
+                        child: const Text(
+                          'تسجيل حساب جديد',
+                          style: TextStyle(
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20.0),
-                    ],
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 35.0.w),
+                      child: CheckboxListTile(
+                        value: context.read<SignUpCubit>().shouldSendWhatsApp,
+                        onChanged: (value) {
+                          setState(() {
+                            context.read<SignUpCubit>().shouldSendWhatsApp =
+                                value!;
+                          });
+                        },
+                        title: Text(
+                          'الحصول علي الصورة',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontFamily: 'IBM Plex Sans Arabic',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                  ],
                 ),
               ),
-          ),
-              ],
-          ),
+            ),
+          ],
+        ),
       );
     });
   }
@@ -651,6 +653,7 @@ class _TeacherSelectionDialogState extends State<TeacherSelectionDialog> {
     );
   }
 }
+
 // models/mark_model.dart
 class MarkModel {
   final String id;
@@ -670,22 +673,22 @@ class MarkModel {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'mark': mark,
-    'examRange': examRange,
-    'teacherName': teacherName,
-    'studentId': studentId,
-    'timestamp': timestamp,
-  };
+        'id': id,
+        'mark': mark,
+        'examRange': examRange,
+        'teacherName': teacherName,
+        'studentId': studentId,
+        'timestamp': timestamp,
+      };
 
   factory MarkModel.fromJson(Map<String, dynamic> json) => MarkModel(
-    id: json['id'],
-    mark: json['mark'].toDouble(),
-    examRange: json['examRange'],
-    teacherName: json['teacherName'],
-    studentId: json['studentId'],
-    timestamp: (json['timestamp'] as Timestamp).toDate(),
-  );
+        id: json['id'],
+        mark: json['mark'].toDouble(),
+        examRange: json['examRange'],
+        teacherName: json['teacherName'],
+        studentId: json['studentId'],
+        timestamp: (json['timestamp'] as Timestamp).toDate(),
+      );
 }
 
 // models/subscription_model.dart
@@ -707,20 +710,21 @@ class SubscriptionModel {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'amount': amount,
-    'teacherName': teacherName,
-    'studentId': studentId,
-    'timestamp': timestamp,
-    'active': active,
-  };
+        'id': id,
+        'amount': amount,
+        'teacherName': teacherName,
+        'studentId': studentId,
+        'timestamp': timestamp,
+        'active': active,
+      };
 
-  factory SubscriptionModel.fromJson(Map<String, dynamic> json) => SubscriptionModel(
-    id: json['id'],
-    amount: json['amount'].toDouble(),
-    teacherName: json['teacherName'],
-    studentId: json['studentId'],
-    timestamp: (json['timestamp'] as Timestamp).toDate(),
-    active: json['active'] ?? true,
-  );
+  factory SubscriptionModel.fromJson(Map<String, dynamic> json) =>
+      SubscriptionModel(
+        id: json['id'],
+        amount: json['amount'].toDouble(),
+        teacherName: json['teacherName'],
+        studentId: json['studentId'],
+        timestamp: (json['timestamp'] as Timestamp).toDate(),
+        active: json['active'] ?? true,
+      );
 }

@@ -17,8 +17,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'core/bloc_observer.dart';
 import 'core/constants/routes_manager.dart';
 import 'firebase_options.dart';
-//import 'package:firebase_messaging/firebase_messaging.dart';
-
+import 'package:admin_future/core/utils/toast_helper.dart';
 
 //todo: if phone is huwawi call that function
 // @pragma('vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
@@ -104,8 +103,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  FirebaseFirestore.instance.settings =
-  const Settings(
+  FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
@@ -170,7 +168,6 @@ Future<void> main() async {
   //   isInDebugMode: kDebugMode,
   // );
 
-
   if (FirebaseAuth.instance.currentUser == null) {
     mainRoute = AppRoutes.login;
   } else {
@@ -216,7 +213,7 @@ Future<void> main() async {
   //
   // });
   // background notificationa
- // FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler
+  // FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler
   //);
   // firebase messaging PERMISSION
   //  await FirebaseMessaging.instance.requestPermission(
@@ -237,7 +234,6 @@ Future<void> main() async {
   //   provisional: false,
   //   sound: false,
   // );
-
 
   BlocOverrides.runZoned(() => runApp(const MyApp()),
       blocObserver: MyBlocObserver());
@@ -331,60 +327,48 @@ Future<void> main() async {
 //     //networkType: NetworkType.connected,
 //     //  ),
 //   );
-
 }
 
-
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-    designSize: const Size(390, 845),
-    minTextAdapt: true,
-    splitScreenMode: true,
-    builder: (context, child) =>
-        MaterialApp(
-          // localizationsDelegates: [
-          //   GlobalMaterialLocalizations.delegate,
-          //   GlobalWidgetsLocalizations.delegate,
-          //   GlobalCupertinoLocalizations.delegate,
-          // ],
-          // supportedLocales: const [
-          //   Locale('ar', "AE"),
-          // ],
-          builder: BotToastInit(),
-          navigatorObservers: [BotToastNavigatorObserver()],
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            timePickerTheme: const TimePickerThemeData(
-              elevation: 10,
-              entryModeIconColor: Colors.black,
-              hourMinuteShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(8)),
-              ),
-              backgroundColor: Colors.white,
+      designSize: const Size(428, 926),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
+        final botToastBuilder = BotToastInit();
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (context) => ManageAttendenceCubit(),
             ),
-            textSelectionTheme: const TextSelectionThemeData(
-              cursorColor: Colors.blue,
-              selectionColor: Colors.blue,
-              selectionHandleColor: Colors.blue,
+            BlocProvider(
+              create: (context) => ManageUsersCubit(),
             ),
-            primarySwatch: //use this as material color #4F46E5
-            Colors.blue,
-            //MyColors.primaryColor,
+          ],
+          child: MaterialApp(
+            scaffoldMessengerKey: snackbarKey,
+            navigatorObservers: [
+              BotToastNavigatorObserver(),
+            ],
+            builder: (context, child) {
+              child = botToastBuilder(context, child);
+              return child;
+            },
+            theme: ThemeData(
+              colorScheme:
+                  ColorScheme.fromSeed(seedColor: const Color(0xFF4869E8)),
+              useMaterial3: true,
+            ),
+            debugShowCheckedModeBanner: false,
+            onGenerateRoute: RouteGenerator.generateRoute,
+            initialRoute: mainRoute,
           ),
-          initialRoute:
-          mainRoute,
-          //AppRoutes.manageGroups,
-          onGenerateRoute: RouteGenerator.generateRoute,
-        ),
-
         );
+      },
+    );
   }
 }
-
-
-

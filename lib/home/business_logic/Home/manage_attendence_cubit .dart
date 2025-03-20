@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,6 +17,7 @@ import '../../../registeration/data/userModel.dart';
 import '../../presenation/widget/manage_groups_screen.dart';
 import 'manage_attendence_state.dart';
 import '../../../manage_users_coaches/business_logic/manage_users_cubit.dart';
+import '../../../core/utils/toast_helper.dart';
 // ****this is my firestore Collections and Documents:**
 // - *users*: A collection to store the information of all coaches.
 // - Document ID: unique coach ID
@@ -63,7 +64,8 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
 // - Fields: *`branch_id`, *`start_time`*, *`end_time`*, *`date`*, *`finished`**
 
   void addToWhatsAppGroup(String groupLink, String phoneNumber) async {
-    final url = 'https://wa.me/$phoneNumber?text=Please%20add%20me%20to%20the%20group%20$groupLink';
+    final url =
+        'https://wa.me/$phoneNumber?text=Please%20add%20me%20to%20the%20group%20$groupLink';
     if (await canLaunch(url)) {
       await launch(url);
     } else {
@@ -761,25 +763,11 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
       // await manageSalaryCubit.getSchedules(day: days[0]);
       emit(AddSchedulefinishState());
       //show toast
-      Fluttertoast.showToast(
-          msg: 'تم تعديل المواعيد بنجاح',
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 5,
-          backgroundColor: Colors.green,
-          textColor: Colors.white,
-          fontSize: 16.0);
+      showToast(msg: 'تم تعديل المواعيد بنجاح', state: ToastStates.SUCCESS);
     } catch (e) {
       print('Error updating schedule: $e');
       emit(AddScheduleErrorState(e.toString()));
-      Fluttertoast.showToast(
-          msg: 'حدث خطأ أثناء تعديل المواعيد',
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 5,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
+      showToast(msg: 'حدث خطأ أثناء تعديل المواعيد', state: ToastStates.ERROR);
     }
   }
 
@@ -812,7 +800,8 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
 
     return nearestDay;
   }
- Future<void> addSchedule(bool isEmit,BuildContext context,
+
+  Future<void> addSchedule(bool isEmit, BuildContext context,
       {required Timestamp startTrainingTime,
       required Timestamp endTrainingTime,
       required String branch}) async {
@@ -823,8 +812,7 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
     ScheduleModel? schedule;
     try {
       //emit(LoadingState());
-      if(isEmit)
-      emit(AddScheduleLoadingState());
+      if (isEmit) emit(AddScheduleLoadingState());
       for (var day in days) {
         // Get the nearest day of the week
         DateTime nearestDay = getNearestDayOfWeek(day);
@@ -855,7 +843,6 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
                   .where('name', isEqualTo: coach)
                   .get();
               if (querySnapshot.docs.isNotEmpty) {
-
                 String userId = querySnapshot.docs.first.id;
                 await FirebaseFirestore.instance
                     .collection('users')
@@ -882,14 +869,15 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
                     .doc(userId)
                     .set({
                   'name': querySnapshot.docs.first['name'],
-                  'uid' : userId,
+                  'uid': userId,
                   'uid': userId,
                   'finished': false,
                 });
 
                 // add user to usersList field in schedule
                 await scheduleDoc.update({
-                  'usersList': FieldValue.arrayUnion([querySnapshot.docs.first['name']]),
+                  'usersList':
+                      FieldValue.arrayUnion([querySnapshot.docs.first['name']]),
                   'usersList':
                       FieldValue.arrayUnion([querySnapshot.docs.first['name']]),
                   'userIds': FieldValue.arrayUnion(
@@ -940,207 +928,184 @@ class ManageAttendenceCubit extends Cubit<ManageAttendenceState> {
       //emit(SuccessState());
       emit(AddScheduleSuccessState());
       ManageUsersCubit.get(context).updateSchedules(schedule!);
-      if(isEmit){
+      if (isEmit) {
         emit(AddScheduleSuccessState());
         //show toast
-        Fluttertoast.showToast(
-            msg: 'تم إضافة المواعيد بنجاح',
-            toastLength: Toast.LENGTH_LONG,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 5,
-            backgroundColor: Colors.green,
-            textColor: Colors.white,
-            fontSize: 16.0);
+        showToast(msg: 'تم إضافة المواعيد بنجاح', state: ToastStates.SUCCESS);
       }
-
     } catch (e) {
-      if(isEmit)
-      emit(AddScheduleErrorState(e.toString()));
-    //  emit(ErrorState(errorMessage: 'Error updating schedule: $e'));
-      Fluttertoast.showToast(
+      if (isEmit) emit(AddScheduleErrorState(e.toString()));
+      //  emit(ErrorState(errorMessage: 'Error updating schedule: $e'));
+      showToast(
           msg: //print e
-          'حدث خطأ أثناء إضافة المواعيد\n${e.toString()}',
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 5,
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
-          fontSize: 16.0);
+              'حدث خطأ أثناء إضافة المواعيد\n${e.toString()}',
+          state: ToastStates.ERROR);
     }
-  } 
+  }
 
   // Modify the addSchedule function to use the getNearestDayOfWeek function
   late Map<String, Map<dynamic, dynamic>> nonNullableDays = {};
-Future<void> addGroup(
-  bool isEmit,
-  BuildContext context, {
-  required List<UserModel> selectedCoaches,
-  required Timestamp startTrainingTime,
-  required Timestamp endTrainingTime,
-  required String branch,
-  Map<String, Map<dynamic, dynamic>>? times, String? maxUsers,
-}) async {
-  // void addSchedule(
-  //     bool isEmit  ,
-  //   BuildContext context, {
-  //  // List<String>? selectedDays,
-  //   String? startTrainingTime,
-  //   String? endTrainingTime,
-  //   String? branch,
-  //   Map<String, Map<dynamic, dynamic>>? times,
-  // }) async {
-  //todo change use thsi map
+  Future<void> addGroup(
+    bool isEmit,
+    BuildContext context, {
+    required List<UserModel> selectedCoaches,
+    required Timestamp startTrainingTime,
+    required Timestamp endTrainingTime,
+    required String branch,
+    Map<String, Map<dynamic, dynamic>>? times,
+    String? maxUsers,
+  }) async {
+    // void addSchedule(
+    //     bool isEmit  ,
+    //   BuildContext context, {
+    //  // List<String>? selectedDays,
+    //   String? startTrainingTime,
+    //   String? endTrainingTime,
+    //   String? branch,
+    //   Map<String, Map<dynamic, dynamic>>? times,
+    // }) async {
+    //todo change use thsi map
 
-  for (var day in times!.keys) {
-    if (times[day]!['start'] != null && times[day]!['end'] != null) {
-      DateTime nearestDay = getNearestDayOfWeek(day);
-      Timestamp nearestDayTimestamp = Timestamp.fromDate(nearestDay);
-      nonNullableDays[day] = {
-        'start': Timestamp.fromDate(DateTime(
-                nearestDay.year,
-                nearestDay.month,
-                nearestDay.day,
-                times[day]!['start'].hour,
-                times[day]!['start'].minute)),
-        'end': Timestamp.fromDate(DateTime(
-                  nearestDay.year,
-                  nearestDay.month,
-                  nearestDay.day,
-                  times[day]!['end'].hour,
-                  times[day]!['end'].minute)),
-        'nearest_day': nearestDayTimestamp,
-      };
-    }
-  }
-  print('nonNullableDays: ${nonNullableDays.toString()}}');
-
-  List<String> days = //get all non null days
-      nonNullableDays.keys.toList();
-  //get all non null days start and end time as timestamp . note start and end time is timeofday
-
-  ScheduleModel? schedule;
-  try {
-    if (isEmit) emit(AddScheduleLoadingState());
-    for (var day in days) {
-      if (nonNullableDays.containsKey(day)) {
-        //DateTime nearestDay = nonNullableDays[day]!['nearest_day'].toDate();
-        Timestamp nearestDayTimestamp = nonNullableDays[day]!['nearest_day'];
-
-        await FirebaseFirestore.instance
-            .collection('admins')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('schedules')
-            .doc(day)
-            .collection('schedules')
-            .add({
-          'start_time': nonNullableDays[day]!['start'],
-          'end_time': nonNullableDays[day]!['end'],
-          'date': day,
+    for (var day in times!.keys) {
+      if (times[day]!['start'] != null && times[day]!['end'] != null) {
+        DateTime nearestDay = getNearestDayOfWeek(day);
+        Timestamp nearestDayTimestamp = Timestamp.fromDate(nearestDay);
+        nonNullableDays[day] = {
+          'start': Timestamp.fromDate(DateTime(
+              nearestDay.year,
+              nearestDay.month,
+              nearestDay.day,
+              times[day]!['start'].hour,
+              times[day]!['start'].minute)),
+          'end': Timestamp.fromDate(DateTime(
+              nearestDay.year,
+              nearestDay.month,
+              nearestDay.day,
+              times[day]!['end'].hour,
+              times[day]!['end'].minute)),
           'nearest_day': nearestDayTimestamp,
-          'branch_id': branch,
-          'usersList': [],
-          'userIds': [],
-          'max_users': maxUsers,
-        }).then((scheduleDoc) async {
-          if (selectedCoaches != null && selectedCoaches.isNotEmpty) {
-            for (var coach in selectedCoaches) {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(coach.uId)
-                  .collection('schedules')
-                  .doc(scheduleDoc.id)
-                  .set({
-                'start_time': nonNullableDays[day]!['start'],
-                'end_time': nonNullableDays[day]!['end'],
-                'date': day,
-                'nearest_day': nearestDayTimestamp,
-                'branch_id': branch,
-                'pId': FirebaseAuth.instance.currentUser!.uid,
-                'max_users': maxUsers,
-              });
-              await FirebaseFirestore.instance
-                  .collection('admins')
-                  .doc(FirebaseAuth.instance.currentUser!.uid)
-                  .collection('schedules')
-                  .doc(day)
-                  .collection('schedules')
-                  .doc(scheduleDoc.id)
-                  .collection('users')
-                  .doc(coach.uId)
-                  .set({
-                'name': coach.name,
-                'uid': coach.uId,
-                'finished': false,
-              });
-
-              await scheduleDoc.update({
-                'usersList': FieldValue.arrayUnion([coach.name]),
-                'userIds': FieldValue.arrayUnion([coach.uId]),
-              });
-
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(coach.uId)
-                  .collection('schedules')
-                  .doc(scheduleDoc.id)
-                  .set({
-                'start_time': nonNullableDays[day]!['start'],
-                'end_time': nonNullableDays[day]!['end'],
-                'date': day,
-                'nearest_day': nearestDayTimestamp,
-                'branch_id': branch,
-                'pId': FirebaseAuth.instance.currentUser!.uid,
-                'scheduleId': scheduleDoc.id,
-                'max_users': maxUsers,
-              });
-            }
-          }
-
-          await scheduleDoc.update({
-            'schedule_id': scheduleDoc.id,
-          });
-
-          schedule = ScheduleModel(
-            startTime: nonNullableDays[day]!['start'],
-            endTime: nonNullableDays[day]!['end'],
-            date: day,
-            nearestDay: nearestDayTimestamp,
-            branchId: branch,
-            users : selectedCoaches,
-            usersList: selectedCoaches?.map((coach) => coach.name).toList() ?? [],
-            userIds: selectedCoaches?.map((coach) => coach.uId).toList() ?? [],
-            scheduleId: scheduleDoc.id,
-            finished: false,
-            pId: FirebaseAuth.instance.currentUser!.uid,
-            maxUsers: maxUsers,
-          );
-        });
+        };
       }
     }
-    ManageUsersCubit.get(context).updateSchedules(schedule!);
-    if (isEmit) {
-      emit(AddScheduleSuccessState());
-      Fluttertoast.showToast(
-          msg: 'تم إضافة المواعيد بنجاح',
-          toastLength: Toast.LENGTH_LONG,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 5,
-          backgroundColor: Colors.green,
-          textColor: Colors.white,
-          fontSize: 16.0);
+    print('nonNullableDays: ${nonNullableDays.toString()}}');
+
+    List<String> days = //get all non null days
+        nonNullableDays.keys.toList();
+    //get all non null days start and end time as timestamp . note start and end time is timeofday
+
+    ScheduleModel? schedule;
+    try {
+      if (isEmit) emit(AddScheduleLoadingState());
+      for (var day in days) {
+        if (nonNullableDays.containsKey(day)) {
+          //DateTime nearestDay = nonNullableDays[day]!['nearest_day'].toDate();
+          Timestamp nearestDayTimestamp = nonNullableDays[day]!['nearest_day'];
+
+          await FirebaseFirestore.instance
+              .collection('admins')
+              .doc(FirebaseAuth.instance.currentUser!.uid)
+              .collection('schedules')
+              .doc(day)
+              .collection('schedules')
+              .add({
+            'start_time': nonNullableDays[day]!['start'],
+            'end_time': nonNullableDays[day]!['end'],
+            'date': day,
+            'nearest_day': nearestDayTimestamp,
+            'branch_id': branch,
+            'usersList': [],
+            'userIds': [],
+            'max_users': maxUsers,
+          }).then((scheduleDoc) async {
+            if (selectedCoaches != null && selectedCoaches.isNotEmpty) {
+              for (var coach in selectedCoaches) {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(coach.uId)
+                    .collection('schedules')
+                    .doc(scheduleDoc.id)
+                    .set({
+                  'start_time': nonNullableDays[day]!['start'],
+                  'end_time': nonNullableDays[day]!['end'],
+                  'date': day,
+                  'nearest_day': nearestDayTimestamp,
+                  'branch_id': branch,
+                  'pId': FirebaseAuth.instance.currentUser!.uid,
+                  'max_users': maxUsers,
+                });
+                await FirebaseFirestore.instance
+                    .collection('admins')
+                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                    .collection('schedules')
+                    .doc(day)
+                    .collection('schedules')
+                    .doc(scheduleDoc.id)
+                    .collection('users')
+                    .doc(coach.uId)
+                    .set({
+                  'name': coach.name,
+                  'uid': coach.uId,
+                  'finished': false,
+                });
+
+                await scheduleDoc.update({
+                  'usersList': FieldValue.arrayUnion([coach.name]),
+                  'userIds': FieldValue.arrayUnion([coach.uId]),
+                });
+
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(coach.uId)
+                    .collection('schedules')
+                    .doc(scheduleDoc.id)
+                    .set({
+                  'start_time': nonNullableDays[day]!['start'],
+                  'end_time': nonNullableDays[day]!['end'],
+                  'date': day,
+                  'nearest_day': nearestDayTimestamp,
+                  'branch_id': branch,
+                  'pId': FirebaseAuth.instance.currentUser!.uid,
+                  'scheduleId': scheduleDoc.id,
+                  'max_users': maxUsers,
+                });
+              }
+            }
+
+            await scheduleDoc.update({
+              'schedule_id': scheduleDoc.id,
+            });
+
+            schedule = ScheduleModel(
+              startTime: nonNullableDays[day]!['start'],
+              endTime: nonNullableDays[day]!['end'],
+              date: day,
+              nearestDay: nearestDayTimestamp,
+              branchId: branch,
+              users: selectedCoaches,
+              usersList:
+                  selectedCoaches?.map((coach) => coach.name).toList() ?? [],
+              userIds:
+                  selectedCoaches?.map((coach) => coach.uId).toList() ?? [],
+              scheduleId: scheduleDoc.id,
+              finished: false,
+              pId: FirebaseAuth.instance.currentUser!.uid,
+              maxUsers: maxUsers,
+            );
+          });
+        }
+      }
+      ManageUsersCubit.get(context).updateSchedules(schedule!);
+      if (isEmit) {
+        emit(AddScheduleSuccessState());
+        showToast(msg: 'تم إضافة المواعيد بنجاح', state: ToastStates.SUCCESS);
+      }
+    } catch (e) {
+      if (isEmit) emit(AddScheduleErrorState(e.toString()));
+      showToast(
+          msg: 'حدث خطأ أثناء إضافة المواعيد\n${e.toString()}',
+          state: ToastStates.ERROR);
     }
-  } catch (e) {
-    if (isEmit) emit(AddScheduleErrorState(e.toString()));
-    Fluttertoast.showToast(
-        msg: 'حدث خطأ أثناء إضافة المواعيد\n${e.toString()}',
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 5,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0);
   }
-}
   //edit this function so that when user selected day is saturday for example get the date of neareast saturday and add it as field in schedule in firebase
 
   //selected items
@@ -1234,6 +1199,7 @@ Future<void> addGroup(
     startTime = timestamp;
     emit(UpdateStartTimeState());
   }
+
 //                FirebaseFirestore.instance
 // //                             .collection('branches')
 // //                             .doc(branchId)
@@ -1257,7 +1223,8 @@ Future<void> addGroup(
 // //                           }
 // //                         });
 // //                       }
-  void navigateToGroupData(String groupId ,String branchId, BuildContext context) {
+  void navigateToGroupData(
+      String groupId, String branchId, BuildContext context) {
     emit(NavigateToGroupDataState());
     //debug parameters
     print('groupId: $groupId');
@@ -1266,24 +1233,25 @@ Future<void> addGroup(
         .collection('branches')
         .doc(branchId)
         .collection('groups')
-    //todo change this to group id
+        //todo change this to group id
         .doc(groupId)
         .get()
         .then((docSnapshot) {
       if (docSnapshot.exists) {
         //that is group model
-      GroupModel group = GroupModel.fromJson(docSnapshot.data() as Map<String, dynamic>);
-      //  Map<String, dynamic> groupData = docSnapshot.data() as Map<String, dynamic>;
-      //   context.read<AddGroupCubit>().updateSelectedUsersAndCoachesAndTimesAndBranchAndMaxUsers(
-      //       selectedUsers: group.users,
-      //       selectedOption: 'تعديل',
-      //       //selectedTimes: group.days,
-      //       context: context,
-      //       maxUsers: group.maxUsers,
-      //       selectedBranch: branchId,
-      //       selectedCoaches: group.coaches,
-      //       selectedDays: group.days,
-      //   );
+        GroupModel group =
+            GroupModel.fromJson(docSnapshot.data() as Map<String, dynamic>);
+        //  Map<String, dynamic> groupData = docSnapshot.data() as Map<String, dynamic>;
+        //   context.read<AddGroupCubit>().updateSelectedUsersAndCoachesAndTimesAndBranchAndMaxUsers(
+        //       selectedUsers: group.users,
+        //       selectedOption: 'تعديل',
+        //       //selectedTimes: group.days,
+        //       context: context,
+        //       maxUsers: group.maxUsers,
+        //       selectedBranch: branchId,
+        //       selectedCoaches: group.coaches,
+        //       selectedDays: group.days,
+        //   );
 //debug parameters schedule id
         print('scheduleId: ${group.schedulesIds}');
         print('scheduleDay in ddelete : ${group.schedulesDays}');
@@ -1296,25 +1264,16 @@ Future<void> addGroup(
             'isAdd': false,
             'branchId': branchId,
             'maxUsers': group.maxUsers,
-    'days': group.days,
-                'usersList':
-                    group.usersList,
-              'coachList':
-                    group.coachList,
-                'coachIds':
-                    group.coachIds,
-                'userIds':
-                    group.userIds,
-                 'scheduleId':
-                    group.schedulesIds,
-                 'scheduleDays':
-                    group.schedulesDays,
-                 'groupId':
-                    group.groupId,
-                 'users':
-                    group.users,
-            'coaches':
-                    group.coaches,
+            'days': group.days,
+            'usersList': group.usersList,
+            'coachList': group.coachList,
+            'coachIds': group.coachIds,
+            'userIds': group.userIds,
+            'scheduleId': group.schedulesIds,
+            'scheduleDays': group.schedulesDays,
+            'groupId': group.groupId,
+            'users': group.users,
+            'coaches': group.coaches,
           },
         );
       }

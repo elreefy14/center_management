@@ -1,0 +1,2 @@
+C:/Users/TaqieAllah/center_management/android/app/.cxx/Debug/3d4s2t5h/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/TaqieAllah/center_management/android/app/.cxx/Debug/3d4s2t5h/armeabi-v7a/CMakeFiles/rebuild_cache.dir

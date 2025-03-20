@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:barcode_image/barcode_image.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:contacts_service/contacts_service.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,13 +17,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
-
+import 'sign_up_state.dart';
 import '../../../core/flutter_flow/form_field_controller.dart';
 import '../../data/userModel.dart';
 import '../../data/adminModel.dart';
-import '../../presenation/widget/widget.dart';
-import 'sign_up_state.dart';
-import 'package:image/image.dart' as img;
+import 'package:admin_future/core/utils/toast_helper.dart';
+import 'package:admin_future/registeration/presenation/widget/widget.dart'
+    show defaultFormField2, defaultButton, defaultFormField;
 
 //**Collections and Documents:**
 // 1. **users**: A collection to store the information of all coaches.   - Document ID: unique coach ID   - Fields: `name`, `level`, `hourly_rate`, `total_hours`, `total_salary`, `current_month_hours`, `current_month_salary`
@@ -66,6 +65,7 @@ class SignUpCubit extends Cubit<SignUpState> {
       emit(GetCoachesErrorState(error: e.toString()));
     }
   }
+
   // Selected Teachers List
   List<String> selectedTeachers = [];
 
@@ -88,8 +88,8 @@ class SignUpCubit extends Cubit<SignUpState> {
     ));
     print(selectedItems);
     print(selectedItems!.length);
-
   }
+
   final formKey = GlobalKey<FormState>();
   final firstNameController = TextEditingController();
   //hourlyRateController
@@ -102,10 +102,11 @@ class SignUpCubit extends Cubit<SignUpState> {
   List<String>? checkboxGroupValues;
   FormFieldController<List<String>>? checkboxGroupValueController;
   bool showPassword = true;
-  void changePasswordVisibility(){
+  void changePasswordVisibility() {
     showPassword = !showPassword;
     emit(ChangePasswordVisibilityState());
   }
+
   //
   // ** New Function: Fetch Coaches **
   Future<void> getCoaches() async {
@@ -118,7 +119,8 @@ class SignUpCubit extends Cubit<SignUpState> {
           .where('role', isEqualTo: 'coach')
           .get();
 
-      print('Query completed. Number of documents found: ${querySnapshot.docs.length}');
+      print(
+          'Query completed. Number of documents found: ${querySnapshot.docs.length}');
 
       querySnapshot.docs.forEach((doc) {
         print('Document data: ${doc.data()}'); // Printing raw document data
@@ -127,11 +129,12 @@ class SignUpCubit extends Cubit<SignUpState> {
       // Use explicit casting and handle nullable values
       List<String> coaches = querySnapshot.docs
           .map((e) {
-        print('Parsing document: ${e.id}'); // Print document id
-        UserModel user = UserModel.fromJson(e.data() as Map<String, dynamic>);
-        print('Parsed user name: ${user.name}'); // Print parsed user name
-        return user.name ?? '';
-      })
+            print('Parsing document: ${e.id}'); // Print document id
+            UserModel user =
+                UserModel.fromJson(e.data() as Map<String, dynamic>);
+            print('Parsed user name: ${user.name}'); // Print parsed user name
+            return user.name ?? '';
+          })
           .where((name) => name.isNotEmpty) // Filter out any empty names
           .toList();
 
@@ -219,7 +222,8 @@ class SignUpCubit extends Cubit<SignUpState> {
           // Skip header row
           for (int i = 1; i < rows.length; i++) {
             var row = rows[i];
-            if (row.length >= 5) { // Make sure row has all required fields
+            if (row.length >= 5) {
+              // Make sure row has all required fields
               String studentCodeFromExcel = row[0]?.value?.toString() ?? '';
               String studentName = row[1]?.value?.toString() ?? '';
               String parentPhone = row[2]?.value?.toString() ?? '';
@@ -229,7 +233,8 @@ class SignUpCubit extends Cubit<SignUpState> {
               // Split name into first and last name
               List<String> nameParts = studentName.split(' ');
               String firstName = nameParts.first;
-              String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+              String lastName =
+                  nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
               await addUser(
                 role: 'user',
@@ -252,18 +257,19 @@ class SignUpCubit extends Cubit<SignUpState> {
       emit(ImportErrorState(e: e.toString()));
     }
   }
+
   Future<String?> addUser({
     required String lName,
     required String fName,
     required String phone,
     required String password,
-    String role ='user',
+    String role = 'user',
     String? hourlyRate,
     required List<String> teachers,
     required String lastPaymentNote,
     required String parentPhone,
     String? studentCode,
-     String? groupCode,
+    String? groupCode,
   }) async {
     final logger = Logger(
       printer: PrettyPrinter(
@@ -276,7 +282,8 @@ class SignUpCubit extends Cubit<SignUpState> {
     );
 
     logger.i('Starting addUser process for: $fName $lName');
-    logger.d('Initial parameters - Phone: $phone, Role: $role, StudentCode: $studentCode');
+    logger.d(
+        'Initial parameters - Phone: $phone, Role: $role, StudentCode: $studentCode');
 
     emit(SignUpLoadingState());
     try {
@@ -288,7 +295,8 @@ class SignUpCubit extends Cubit<SignUpState> {
       // Phone number processing
       logger.d('Original phone number: $phone');
       if (phone.startsWith('٠١')) {
-        phone = phone.replaceAll('٠', '0')
+        phone = phone
+            .replaceAll('٠', '0')
             .replaceAll('١', '1')
             .replaceAll('٢', '2')
             .replaceAll('٣', '3')
@@ -344,29 +352,26 @@ class SignUpCubit extends Cubit<SignUpState> {
           logger.w('Student code already exists: $studentCode');
           throw FirebaseAuthException(
               code: 'student-code-exists',
-              message: 'A user with this student code already exists'
-          );
+              message: 'A user with this student code already exists');
         }
       }
 
       logger.d('Creating new user authentication');
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: '$phone@placeholder.com',
-          password: password
-      );
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+              email: '$phone@placeholder.com', password: password);
       logger.i('Created auth user with ID: ${userCredential.user!.uid}');
 
-      final String newUid = (studentCode != null && studentCode.isNotEmpty) ?
-      studentCode : userCredential.user!.uid;
+      final String newUid = (studentCode != null && studentCode.isNotEmpty)
+          ? studentCode
+          : userCredential.user!.uid;
       logger.d('Using ID for Firestore document: $newUid');
 
       if (studentCode != null && studentCode.isNotEmpty) {
         logger.d('Student code provided, recreating user with custom ID');
         await userCredential.user?.delete();
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: '$phone@placeholder.com',
-            password: password
-        );
+            email: '$phone@placeholder.com', password: password);
       }
 
       logger.d('Creating UserModel');
@@ -393,7 +398,7 @@ class SignUpCubit extends Cubit<SignUpState> {
         branches: [],
         password: password,
         teachers: teachers,
-          groupCode:groupCode??'',
+        groupCode: groupCode ?? '',
       );
 
       logger.d('Saving user to Firestore');
@@ -423,7 +428,6 @@ class SignUpCubit extends Cubit<SignUpState> {
       emit(SignUpSuccessState(newUid));
       logger.i('User registration completed successfully. UID: $newUid');
       return newUid;
-
     } catch (error) {
       String? errorMessage;
       logger.e('Error in addUser: $error');
@@ -459,6 +463,7 @@ class SignUpCubit extends Cubit<SignUpState> {
       return null;
     }
   }
+
   void _clearControllers() {
     firstNameController.clear();
     lastNameController.clear();
@@ -469,16 +474,14 @@ class SignUpCubit extends Cubit<SignUpState> {
 
   bool shouldSendWhatsApp = false;
 
-
-
-
   Future<void> sendWhatsAppMessage({
     required String phone,
     required String uId,
     required String name,
   }) async {
     try {
-      print('sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
+      print(
+          'sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
 
       // Get the temporary directory
       final tempDir = await getTemporaryDirectory();
@@ -517,7 +520,8 @@ class SignUpCubit extends Cubit<SignUpState> {
 
       // Paint it
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData == null) {
         throw Exception('Failed to generate barcode image');
@@ -540,23 +544,22 @@ class SignUpCubit extends Cubit<SignUpState> {
         subject: 'معرف الحساب',
       );
       print('WhatsApp message sent with barcode image');
-
     } catch (e) {
       print('Error in sendWhatsAppMessage: $e');
       rethrow;
     }
   }
 
-
 // Alternative implementation using BuildContext if you need to use QrImageView
   Future<void> sendWhatsAppMessageWithContext(
-      BuildContext context, {
-        required String phone,
-        required String uId,
-        required String name,
-      }) async {
+    BuildContext context, {
+    required String phone,
+    required String uId,
+    required String name,
+  }) async {
     try {
-      print('sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
+      print(
+          'sendWhatsAppMessage called with phone: $phone, uId: $uId, name: $name');
 
       // Get the temporary directory
       final tempDir = await getTemporaryDirectory();
@@ -595,7 +598,7 @@ class SignUpCubit extends Cubit<SignUpState> {
 
       // Capture the image
       final RenderRepaintBoundary boundary =
-      qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+          qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
@@ -626,13 +629,11 @@ class SignUpCubit extends Cubit<SignUpState> {
         sharePositionOrigin: const Rect.fromLTWH(0, 0, 100, 100),
       );
       print('WhatsApp message sent with QR code image');
-
     } catch (e) {
       print('Error in sendWhatsAppMessage: $e');
       rethrow;
     }
   }
-
 
   void createUser({
     //password
@@ -644,13 +645,14 @@ class SignUpCubit extends Cubit<SignUpState> {
     required String? fname,
     required String? lname,
     //branches list
-    List<String>? branches, int? hourlyRate,
+    List<String>? branches,
+    int? hourlyRate,
   }) {
     emit(CreateUserLoadingState());
     if (isUser) {
       UserModel model = UserModel(
         role: role,
-        hourlyRate: hourlyRate??30,
+        hourlyRate: hourlyRate ?? 30,
         totalHours: 0,
         totalSalary: 0,
         currentMonthHours: 0,
@@ -664,7 +666,7 @@ class SignUpCubit extends Cubit<SignUpState> {
         pid: FirebaseAuth.instance.currentUser!.uid,
         numberOfSessions: 0,
         date: Timestamp.now(),
-        branches: branches??[],
+        branches: branches ?? [],
         teachers: [],
       );
 
@@ -678,7 +680,6 @@ class SignUpCubit extends Cubit<SignUpState> {
           .set(model.toJson())
           .then((value) {
         //save user to conatct list in the device
-
 
         emit(CreateUserSuccessState(uId!));
       }).catchError((error) {
@@ -698,7 +699,6 @@ class SignUpCubit extends Cubit<SignUpState> {
         Salary: 0,
         phone: phone,
         pId: uId,
-
       );
       FirebaseFirestore.instance
           .collection('admins')
@@ -711,21 +711,20 @@ class SignUpCubit extends Cubit<SignUpState> {
       });
     }
   }
+
   Future<void> addTrainee({
     required String lname,
     required String fname,
     required String phone,
     required String password,
     String? hourlyRate,
-
   }) async {
     emit(SignUpLoadingState());
     String uId = Uuid().v4();
 
     //     //if password is empty
     if (password.isEmpty) {
-      password
-      = '123456';
+      password = '123456';
     }
     saveUserToContactList(name: fname + ' ' + lname, phoneNumber: phone);
     //if phone number is arabic number start with ٠١ turn it into english number
@@ -749,7 +748,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     UserModel model = UserModel(
       teachers: [],
       role: 'user',
-      hourlyRate:  int.parse(hourlyRate??'30')??30,
+      hourlyRate: int.parse(hourlyRate ?? '30') ?? 30,
       totalHours: 0,
       totalSalary: 0,
       currentMonthHours: 0,
@@ -763,7 +762,7 @@ class SignUpCubit extends Cubit<SignUpState> {
       pid: FirebaseAuth.instance.currentUser!.uid,
       numberOfSessions: 0,
       date: Timestamp.now(),
-      branches:[],
+      branches: [],
     );
 
     // saveUserToContactList(
@@ -772,17 +771,25 @@ class SignUpCubit extends Cubit<SignUpState> {
     // );
     WriteBatch batch = FirebaseFirestore.instance.batch();
     batch.set(
-        FirebaseFirestore.instance.collection('admins').
-        doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
+        FirebaseFirestore.instance
+            .collection('admins')
+            .doc(FirebaseAuth.instance.currentUser?.uid)
+            .collection('dates')
+            .doc(
+                '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
         {
           'setFlag': true,
         },
         SetOptions(merge: true));
     batch.update(
-      FirebaseFirestore.instance.collection('admins').
-      doc(FirebaseAuth.instance.currentUser?.uid).collection('dates').doc('${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
+      FirebaseFirestore.instance
+          .collection('admins')
+          .doc(FirebaseAuth.instance.currentUser?.uid)
+          .collection('dates')
+          .doc(
+              '${DateTime.now().month.toString()}-${DateTime.now().year.toString()}'),
       {
-        'numberOfNewMembers':FieldValue.increment(1),
+        'numberOfNewMembers': FieldValue.increment(1),
       },
     );
 
@@ -807,23 +814,21 @@ class SignUpCubit extends Cubit<SignUpState> {
     hourlyRateController.clear();
     //save user to conatct list in the device
     emit(CreateUserSuccessState(uId!));
-
   }
+
   Future<void> addCoach({
     required String lname,
     required String fname,
     required String phone,
     required String password,
     String? hourlyRate,
-
   }) async {
     emit(SignUpLoadingState());
     String uId = Uuid().v4();
 
     //     //if password is empty
     if (password.isEmpty) {
-      password
-      = '123456';
+      password = '123456';
     }
     saveUserToContactList(name: fname + ' ' + lname, phoneNumber: phone);
     //if phone number is arabic number start with ٠١ turn it into english number
@@ -851,29 +856,23 @@ class SignUpCubit extends Cubit<SignUpState> {
     //then save them in varaible which will be used now
 
     //debug
-    print('\n\nadminemail'+adminEmail!??'');
-    print('\n\nadmin uid'+adminUid!??'');
+    print('\n\nadminemail' + adminEmail! ?? '');
+    print('\n\nadmin uid' + adminUid! ?? '');
     //sign out
     await FirebaseAuth.instance.signOut();
     await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: '$phone@placeholder.com',
-        password: password
-    );
+        email: '$phone@placeholder.com', password: password);
 
     String? coachEmail = FirebaseAuth.instance.currentUser!.email;
     String? coachUid = FirebaseAuth.instance.currentUser!.uid;
-    print('\n\coachEmail'+coachEmail!??'');
-    print('\n\coachUid uid'+coachUid!??'');
-
-
-
-
+    print('\n\coachEmail' + coachEmail! ?? '');
+    print('\n\coachUid uid' + coachUid! ?? '');
 
     ///
     UserModel model = UserModel(
-      teachers:   [],
+      teachers: [],
       role: 'coach',
-      hourlyRate:  int.parse(hourlyRate??'30')??30,
+      hourlyRate: int.parse(hourlyRate ?? '30') ?? 30,
       totalHours: 0,
       totalSalary: 0,
       currentMonthHours: 0,
@@ -887,17 +886,14 @@ class SignUpCubit extends Cubit<SignUpState> {
       pid: FirebaseAuth.instance.currentUser!.uid,
       numberOfSessions: 0,
       date: Timestamp.now(),
-      branches:[],
+      branches: [],
     );
 
     // saveUserToContactList(
     //   name: fname + ' ' + lname,
     //   phoneNumber: phone!,
     // );
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(uId)
-        .set(model.toJson());
+    FirebaseFirestore.instance.collection('users').doc(uId).set(model.toJson());
     showToast(
       msg: 'تم التسجيل بنجاح',
       state: ToastStates.SUCCESS,
@@ -909,7 +905,6 @@ class SignUpCubit extends Cubit<SignUpState> {
     hourlyRateController.clear();
     //save user to conatct list in the device
     emit(CreateUserSuccessState(uId!));
-
   }
 
   Future<void> signUp({
@@ -919,10 +914,10 @@ class SignUpCubit extends Cubit<SignUpState> {
     required String password,
   }) async {
     emit(SignUpLoadingState());
-    FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: '$phone@placeholder.com',
-        password: password
-    ).then((value) {
+    FirebaseAuth.instance
+        .createUserWithEmailAndPassword(
+            email: '$phone@placeholder.com', password: password)
+        .then((value) {
       print(value.user!.uid);
       createUser(
         branches: selectedItems,
@@ -935,7 +930,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     }).catchError((error) {
       String? errorMessage;
       switch (error.code) {
-      //case user already exists
+        //case user already exists
         case "email-already-in-use":
           if (kDebugMode) {
             print(errorMessage);
@@ -981,8 +976,6 @@ class SignUpCubit extends Cubit<SignUpState> {
     print(itemValue.toString());
     selectedItems?.add(itemValue.toString());
 
-
-
     emit(UpdateSelectedItemsState(
       selectedItems: selectedItems,
     ));
@@ -997,6 +990,7 @@ class SignUpCubit extends Cubit<SignUpState> {
     ));
     print(selectedItems);
   }
+
   void itemChange(String itemValue, bool isSelected, BuildContext context) {
     //final List<String> updatedSelection = List.from(
     //   SignUpCubit.get(context).selectedItems ?? []);
@@ -1011,6 +1005,7 @@ class SignUpCubit extends Cubit<SignUpState> {
 
     //  onSelectionChanged(updatedSelection);
   }
+
   // final List<String> items = ['Flutter',
 //         'Node.js',
 //         'React Native',
@@ -1039,7 +1034,8 @@ class SignUpCubit extends Cubit<SignUpState> {
       });
     });
   }
-  List<String>? items ;
+
+  List<String>? items;
   Future<void> getBranches() async {
     items = [];
     emit(GetBranchesLoadingState());
@@ -1073,86 +1069,28 @@ class SignUpCubit extends Cubit<SignUpState> {
   //
   // }
 
-  Future<void> saveUserToContactList({required String name, required String phoneNumber}) async {
-    // Check if the permission has already been granted
-    PermissionStatus status = await Permission.contacts.status;
-
-    if (status.isGranted) {
-      // Permission has already been granted, proceed with checking if the contact already exists
-      Iterable<Contact> contacts = await ContactsService.getContacts();
-      bool contactExists = contacts.any((contact) =>
-          contact.phones!.any((phone) => phone.value == phoneNumber)
-      );
-
-      if (contactExists) {
-        print('Contact already exists');
-        return;
-      }
-
-      // Contact does not exist, proceed with saving the contact
-      final newContact = Contact();
-
-      // Set the display name of the contact
-      newContact.givenName = name;
-
-      // Create a new phone number for the contact
-      final phoneNumberObj = Item(label: 'mobile', value: phoneNumber);
-
-      // Add the phone number to the contact
-      newContact.phones = [phoneNumberObj];
-
-      // Save the contact to the device's contact list
-      await ContactsService.addContact(newContact);
-
-      print('User saved to contact list');
-    } else {
-      // Permission has not been granted, request the permission from the user
-      status = await Permission.contacts.request();
-
-      if (status.isGranted) {
-        // Permission has been granted, proceed with checking if the contact already exists
-        Iterable<Contact> contacts = await ContactsService.getContacts();
-        bool contactExists = contacts.any((contact) =>
-            contact.phones!.any((phone) => phone.value == phoneNumber)
-        );
-
-        if (contactExists) {
-          print('Contact already exists');
-          return;
-        }
-
-        // Contact does not exist, proceed with saving the contact
-        final newContact = Contact();
-
-        // Set the display name of the contact
-        newContact.givenName = name;
-
-        // Create a new phone number for the contact
-        final phoneNumberObj = Item(label: 'mobile', value: phoneNumber);
-
-        // Add the phone number to the contact
-        newContact.phones = [phoneNumberObj];
-
-        // Save the contact to the device's contact list
-        await ContactsService.addContact(newContact);
-
-        print('User saved to contact list');
-      } else {
-        // Permission has been denied, handle the error or show a message to the user
-        print('Permission denied');
-      }
-    }
+  Future<void> saveUserToContactList(
+      {required String name, required String phoneNumber}) async {
+    // Contact functionality has been removed
+    print('Contact saving functionality removed: $name, $phoneNumber');
+    return;
   }
-  void updateControllers({required String firstName,
-    required String lastName,
-    required String phone
-  }) {
+
+  void updateControllers(
+      {required String firstName,
+      required String lastName,
+      required String phone}) {
     firstNameController.text = firstName;
     lastNameController.text = lastName;
     phoneController.text = phone;
     emit(UpdateControllersState());
   }
 
-
+  // Replace any other contact-related methods with this simpler version
+  Future<void> saveContact(String name, String phoneNumber) async {
+    // Contact functionality has been removed
+    print('Contact saving functionality removed: $name, $phoneNumber');
+    return;
+  }
 }
 ////////////////
